@@ -298,7 +298,7 @@ function redrawCursors() {
 }
 
 // ── App state ─────────────────────────────────────────────────────────────────
-const socket = io();
+const socket = io({ transports: ['websocket'] });
 let myName = '', myColor = '#1F1E1D', tool = 'brush';
 let drawing = false, lastWX = 0, lastWY = 0;
 let currentStrokePoints = [];

@@ -6,7 +6,9 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  transports: ['websocket'],
+});
 
 const PORT = process.env.PORT || 3001;
 const DATA_DIR = path.join(__dirname, 'data');
@@ -93,7 +95,7 @@ io.on('connection', (socket) => {
   console.log(`Socket connected: ${socket.id}`);
 
   // ── Join ──────────────────────────────────────────────────────────────────
-  socket.on('join', ({ name }) => {
+  socket.on('user:join', ({ name }) => {
     const trimmedName = String(name).trim().slice(0, 32) || 'Anonymous';
     const color = PALETTE[paletteIndex % PALETTE.length];
     paletteIndex++;
