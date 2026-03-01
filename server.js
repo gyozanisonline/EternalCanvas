@@ -1,8 +1,7 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const fs = require('fs');
-const path = require('path');
+const { MongoClient } = require('mongodb');
 
 const app = express();
 const server = http.createServer(app);
@@ -11,10 +10,6 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || 3001;
-const DATA_DIR = path.join(__dirname, 'data');
-const CANVAS_FILE = path.join(DATA_DIR, 'canvas.json');
-const META_FILE = path.join(DATA_DIR, 'meta.json');
-
 const RESET_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // ── Colour palette assigned to users on join ──────────────────────────────────
@@ -30,47 +25,52 @@ const users = {};
 let canvasEvents = [];
 let nextResetAt = Date.now() + RESET_INTERVAL_MS;
 
-// ── Persistence helpers ───────────────────────────────────────────────────────
-function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+// ── MongoDB persistence ───────────────────────────────────────────────────────
+let db = null;
+
+async function connectDB() {
+  if (!process.env.MONGODB_URI) {
+    console.log('No MONGODB_URI set — canvas state will not persist across restarts.');
+    return;
+  }
+  try {
+    const client = new MongoClient(process.env.MONGODB_URI);
+    await client.connect();
+    db = client.db('eternalcanvas');
+    console.log('Connected to MongoDB.');
+  } catch (err) {
+    console.warn('MongoDB connection failed:', err.message);
+  }
 }
 
-function loadCanvas() {
+async function loadCanvas() {
+  if (!db) return;
   try {
-    ensureDataDir();
-    if (fs.existsSync(CANVAS_FILE)) {
-      canvasEvents = JSON.parse(fs.readFileSync(CANVAS_FILE, 'utf8'));
-      console.log(`Loaded ${canvasEvents.length} canvas events from disk.`);
-    }
-    if (fs.existsSync(META_FILE)) {
-      const meta = JSON.parse(fs.readFileSync(META_FILE, 'utf8'));
-      if (meta.nextResetAt && meta.nextResetAt > Date.now()) {
-        nextResetAt = meta.nextResetAt;
-      } else {
-        // Overdue — clear canvas now, start fresh cycle
+    const doc = await db.collection('state').findOne({ _id: 'canvas' });
+    if (doc) {
+      canvasEvents = doc.events || [];
+      if (doc.nextResetAt && doc.nextResetAt > Date.now()) {
+        nextResetAt = doc.nextResetAt;
+      } else if (doc.nextResetAt) {
+        // Overdue reset — clear now
         canvasEvents = [];
         nextResetAt = Date.now() + RESET_INTERVAL_MS;
         saveCanvas();
       }
+      console.log(`Loaded ${canvasEvents.length} canvas events from MongoDB.`);
     }
   } catch (err) {
-    console.warn('Could not load state:', err.message);
-    canvasEvents = [];
+    console.warn('Could not load canvas:', err.message);
   }
 }
 
 function saveCanvas() {
-  try {
-    ensureDataDir();
-    fs.writeFile(CANVAS_FILE, JSON.stringify(canvasEvents), (err) => {
-      if (err) console.warn('Canvas save error:', err.message);
-    });
-    fs.writeFile(META_FILE, JSON.stringify({ nextResetAt }), (err) => {
-      if (err) console.warn('Meta save error:', err.message);
-    });
-  } catch (err) {
-    console.warn('Canvas save error:', err.message);
-  }
+  if (!db) return;
+  db.collection('state').updateOne(
+    { _id: 'canvas' },
+    { $set: { events: canvasEvents, nextResetAt } },
+    { upsert: true }
+  ).catch(err => console.warn('Canvas save error:', err.message));
 }
 
 // ── 24-hour reset scheduler ───────────────────────────────────────────────────
@@ -194,8 +194,11 @@ io.on('connection', (socket) => {
 });
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
-loadCanvas();
-scheduleReset();
-server.listen(PORT, () => {
-  console.log(`Eternal Canvas running at http://localhost:${PORT}`);
+connectDB().then(() => {
+  loadCanvas().then(() => {
+    scheduleReset();
+    server.listen(PORT, () => {
+      console.log(`Eternal Canvas running at http://localhost:${PORT}`);
+    });
+  });
 });
