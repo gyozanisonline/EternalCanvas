@@ -1,72 +1,72 @@
 /* ── Eternal Canvas — client ─────────────────────────────────────────────── */
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
-const modalOverlay  = document.getElementById('modal-overlay');
-const nameInput     = document.getElementById('name-input');
-const joinBtn       = document.getElementById('join-btn');
-const ambCanvas     = document.getElementById('ambient-canvas');
+const modalOverlay = document.getElementById('modal-overlay');
+const nameInput = document.getElementById('name-input');
+const joinBtn = document.getElementById('join-btn');
+const ambCanvas = document.getElementById('ambient-canvas');
 
-const appEl         = document.getElementById('app');
-const canvas        = document.getElementById('canvas');
-const cursorCanvas  = document.getElementById('cursors');
-const minimapEl     = document.getElementById('minimap');
-const canvasWrap    = document.getElementById('canvas-wrap');
-const coordsEl      = document.getElementById('coords');
-const zoomLabelEl   = document.getElementById('zoom-label');
-const zoomHintEl    = document.getElementById('zoom-hint');
+const appEl = document.getElementById('app');
+const canvas = document.getElementById('canvas');
+const cursorCanvas = document.getElementById('cursors');
+const minimapEl = document.getElementById('minimap');
+const canvasWrap = document.getElementById('canvas-wrap');
+const coordsEl = document.getElementById('coords');
+const zoomLabelEl = document.getElementById('zoom-label');
+const zoomHintEl = document.getElementById('zoom-hint');
 
-const toolBrush     = document.getElementById('tool-brush');
-const toolText      = document.getElementById('tool-text');
-const colorPicker   = document.getElementById('color-picker');
-const sizeSlider    = document.getElementById('size-slider');
-const sizeLabel     = document.getElementById('size-label');
-const userDot       = document.getElementById('user-dot');
-const userNameDisp  = document.getElementById('user-name-display');
-const colorSwatch   = document.getElementById('color-swatch');
+const toolBrush = document.getElementById('tool-brush');
+const toolText = document.getElementById('tool-text');
+const colorPicker = document.getElementById('color-picker');
+const sizeSlider = document.getElementById('size-slider');
+const sizeLabel = document.getElementById('size-label');
+const userDot = document.getElementById('user-dot');
+const userNameDisp = document.getElementById('user-name-display');
+const colorSwatch = document.getElementById('color-swatch');
 
-const userListEl    = document.getElementById('user-list');
-const chatMessages  = document.getElementById('chat-messages');
-const chatInput     = document.getElementById('chat-input');
-const chatSend      = document.getElementById('chat-send');
+const userListEl = document.getElementById('user-list');
+const chatMessages = document.getElementById('chat-messages');
+const chatInput = document.getElementById('chat-input');
+const chatSend = document.getElementById('chat-send');
 
 // ── Contexts ──────────────────────────────────────────────────────────────────
-const ctx    = canvas.getContext('2d');
+const ctx = canvas.getContext('2d');
 const curCtx = cursorCanvas.getContext('2d');
-const mmCtx  = minimapEl.getContext('2d');
+const mmCtx = minimapEl.getContext('2d');
 const ambCtx = ambCanvas ? ambCanvas.getContext('2d') : null;
 
 // ── World constants ───────────────────────────────────────────────────────────
-const WORLD_W     = 4000;
-const WORLD_H     = 3000;
-const MM_W        = 160;
-const MM_H        = Math.round(MM_W * WORLD_H / WORLD_W); // 120
+const WORLD_W = 4000;
+const WORLD_H = 3000;
+const MM_W = 160;
+const MM_H = Math.round(MM_W * WORLD_H / WORLD_W); // 120
 const MIN_DRAW_ZOOM = 0.5; // must be at least 50% zoom to draw
 
-minimapEl.width  = MM_W;
+minimapEl.width = MM_W;
 minimapEl.height = MM_H;
 
 // ── Vector storage ────────────────────────────────────────────────────────────
 // No raster offscreen canvas. All strokes are paths, re-drawn every frame.
-const events           = []; // { type, ...fields } — completed strokes & texts
+const events = []; // { type, ...fields } — completed strokes & texts
 const remoteInProgress = {}; // userId → { points[], color, size } — live remote strokes
 
 // Minimap uses a separate offscreen canvas rebuilt only when strokes are added
-const mmWorld  = document.createElement('canvas');
-mmWorld.width  = MM_W;
+const mmWorld = document.createElement('canvas');
+mmWorld.width = MM_W;
 mmWorld.height = MM_H;
-const mmWCtx   = mmWorld.getContext('2d');
+const mmWCtx = mmWorld.getContext('2d');
 
 // ── Viewport ──────────────────────────────────────────────────────────────────
 let panX = 0, panY = 0, zoom = 1;
 
 function screenToWorld(sx, sy) { return { x: (sx - panX) / zoom, y: (sy - panY) / zoom }; }
 function worldToScreen(wx, wy) { return { x: wx * zoom + panX, y: wy * zoom + panY }; }
-function clampZoom(z)          { return Math.max(0.04, Math.min(14, z)); }
+function clampZoom(z) { return Math.max(0.04, Math.min(14, z)); }
 
 function initViewport() {
   const pad = 48;
   zoom = Math.min((canvas.width - pad * 2) / WORLD_W, (canvas.height - pad * 2) / WORLD_H);
-  panX = (canvas.width  - WORLD_W * zoom) / 2;
+  panX = (canvas.width - WORLD_W * zoom) / 2;
   panY = (canvas.height - WORLD_H * zoom) / 2;
 }
 
@@ -75,9 +75,9 @@ function renderStroke(c, { points, color, size }) {
   if (!points || points.length < 2) return;
   c.beginPath();
   c.strokeStyle = color;
-  c.lineWidth   = size;
-  c.lineCap     = 'round';
-  c.lineJoin    = 'round';
+  c.lineWidth = size;
+  c.lineCap = 'round';
+  c.lineJoin = 'round';
   c.moveTo(points[0].x, points[0].y);
   for (let i = 1; i < points.length; i++) c.lineTo(points[i].x, points[i].y);
   c.stroke();
@@ -85,7 +85,7 @@ function renderStroke(c, { points, color, size }) {
 
 function renderText(c, { x, y, text, color, fontSize }) {
   c.fillStyle = color;
-  c.font      = `${fontSize}px 'Courier Prime', 'Courier New', monospace`;
+  c.font = `${fontSize}px 'Courier Prime', 'Courier New', monospace`;
   c.fillText(text, x, y);
 }
 
@@ -98,7 +98,7 @@ function rebuildMinimap() {
   mmWCtx.scale(s, s);
   for (const ev of events) {
     if (ev.type === 'stroke') renderStroke(mmWCtx, ev);
-    if (ev.type === 'text')   renderText(mmWCtx, ev);
+    if (ev.type === 'text') renderText(mmWCtx, ev);
   }
   mmWCtx.restore();
 }
@@ -118,20 +118,20 @@ function updateMinimap() {
   // Viewport indicator
   const vx = Math.max(0, (-panX / zoom) * s);
   const vy = Math.max(0, (-panY / zoom) * s);
-  const vw = Math.min(MM_W - vx, (canvas.width  / zoom) * s);
+  const vw = Math.min(MM_W - vx, (canvas.width / zoom) * s);
   const vh = Math.min(MM_H - vy, (canvas.height / zoom) * s);
-  mmCtx.fillStyle   = 'rgba(200,119,87,.1)';
+  mmCtx.fillStyle = 'rgba(200,119,87,.1)';
   mmCtx.fillRect(vx, vy, vw, vh);
   mmCtx.strokeStyle = '#c87757';
-  mmCtx.lineWidth   = 1.5;
+  mmCtx.lineWidth = 1.5;
   mmCtx.strokeRect(vx, vy, vw, vh);
 }
 
 minimapEl.addEventListener('click', (e) => {
-  const r  = minimapEl.getBoundingClientRect();
+  const r = minimapEl.getBoundingClientRect();
   const wx = ((e.clientX - r.left) / MM_W) * WORLD_W;
-  const wy = ((e.clientY - r.top)  / MM_H) * WORLD_H;
-  panX = canvas.width  / 2 - wx * zoom;
+  const wy = ((e.clientY - r.top) / MM_H) * WORLD_H;
+  panX = canvas.width / 2 - wx * zoom;
   panY = canvas.height / 2 - wy * zoom;
   scheduleRender();
 });
@@ -167,7 +167,7 @@ function renderViewport() {
   // All completed events
   for (const ev of events) {
     if (ev.type === 'stroke') renderStroke(ctx, ev);
-    if (ev.type === 'text')   renderText(ctx, ev);
+    if (ev.type === 'text') renderText(ctx, ev);
   }
 
   // Live strokes from remote users (visible as they draw)
@@ -179,8 +179,8 @@ function renderViewport() {
   if (drawing && currentStrokePoints.length >= 2) {
     renderStroke(ctx, {
       points: currentStrokePoints,
-      color:  colorPicker.value,
-      size:   Number(sizeSlider.value),
+      color: colorPicker.value,
+      size: 1,
     });
   }
 
@@ -203,7 +203,7 @@ function renderViewport() {
 // ── Dot grid background ───────────────────────────────────────────────────────
 // Screen-space grid that offsets with pan — gives a grounded, tactile feel
 function drawDotGrid() {
-  const S  = 24;
+  const S = 24;
   const ox = ((panX % S) + S) % S;
   const oy = ((panY % S) + S) % S;
   ctx.fillStyle = 'rgba(232,230,220,.04)';
@@ -216,8 +216,8 @@ function drawDotGrid() {
 function drawGrid() {
   if (zoom < 1.5) return;
   const visL = -panX / zoom, visT = -panY / zoom;
-  const visR =  visL + canvas.width / zoom;
-  const visB =  visT + canvas.height / zoom;
+  const visR = visL + canvas.width / zoom;
+  const visB = visT + canvas.height / zoom;
 
   ctx.save();
   ctx.translate(panX, panY);
@@ -253,7 +253,7 @@ function drawGrid() {
 function updateHUD() {
   if (zoomLabelEl) zoomLabelEl.textContent = Math.round(zoom * 100) + '%';
   const blocked = zoom < MIN_DRAW_ZOOM && (tool === 'brush' || tool === 'text');
-  if (zoomHintEl)  zoomHintEl.classList.toggle('visible', blocked);
+  if (zoomHintEl) zoomHintEl.classList.toggle('visible', blocked);
 }
 
 // ── Cursor layer ──────────────────────────────────────────────────────────────
@@ -301,11 +301,11 @@ let panStartPanX = 0, panStartPanY = 0;
 let spaceDown = false;
 
 function updateCursor() {
-  if (isPanning)                                    canvas.style.cursor = 'grabbing';
-  else if (spaceDown)                               canvas.style.cursor = 'grab';
-  else if (zoom < MIN_DRAW_ZOOM)                    canvas.style.cursor = 'default';
-  else if (tool === 'text')                         canvas.style.cursor = 'text';
-  else                                              canvas.style.cursor = 'crosshair';
+  if (isPanning) canvas.style.cursor = 'grabbing';
+  else if (spaceDown) canvas.style.cursor = 'grab';
+  else if (zoom < MIN_DRAW_ZOOM) canvas.style.cursor = 'default';
+  else if (tool === 'text') canvas.style.cursor = 'text';
+  else canvas.style.cursor = 'crosshair';
 }
 
 function canDraw() { return zoom >= MIN_DRAW_ZOOM; }
@@ -314,12 +314,12 @@ function canDraw() { return zoom >= MIN_DRAW_ZOOM; }
 function setTool(t) {
   tool = t;
   toolBrush.classList.toggle('active', t === 'brush');
-  toolText.classList.toggle('active',  t === 'text');
+  toolText.classList.toggle('active', t === 'text');
   updateCursor();
 }
 
 toolBrush.addEventListener('click', () => setTool('brush'));
-toolText.addEventListener('click',  () => setTool('text'));
+toolText.addEventListener('click', () => setTool('text'));
 sizeSlider.addEventListener('input', () => { sizeLabel.textContent = sizeSlider.value; });
 colorPicker.addEventListener('input', () => { colorSwatch.style.background = colorPicker.value; });
 
@@ -330,8 +330,8 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'b' || e.key === 'B') setTool('brush');
   if (e.key === 't' || e.key === 'T') setTool('text');
   if (e.key === 'r' || e.key === 'R') { initViewport(); scheduleRender(); }
-  if (e.key === '+' || e.key === '=') zoomAround(canvas.width / 2, canvas.height / 2,  1.25);
-  if (e.key === '-')                  zoomAround(canvas.width / 2, canvas.height / 2, 1 / 1.25);
+  if (e.key === '+' || e.key === '=') zoomAround(canvas.width / 2, canvas.height / 2, 1.25);
+  if (e.key === '-') zoomAround(canvas.width / 2, canvas.height / 2, 1 / 1.25);
   if (e.code === 'Space') { e.preventDefault(); if (!spaceDown) { spaceDown = true; updateCursor(); } }
 });
 document.addEventListener('keyup', (e) => {
@@ -377,7 +377,7 @@ canvas.addEventListener('pointerdown', (e) => {
 
   if (e.button === 0 && tool === 'brush' && canDraw()) {
     const { sx, sy } = screenCoords(e);
-    const { x, y }   = screenToWorld(sx, sy);
+    const { x, y } = screenToWorld(sx, sy);
     drawing = true;
     lastWX = x; lastWY = y;
     currentStrokePoints = [{ x, y }];
@@ -389,7 +389,7 @@ let cursorThrottle = 0;
 
 canvas.addEventListener('pointermove', (e) => {
   const { sx, sy } = screenCoords(e);
-  const { x, y }   = screenToWorld(sx, sy);
+  const { x, y } = screenToWorld(sx, sy);
 
   if (coordsEl) coordsEl.textContent = `${Math.round(x)}, ${Math.round(y)}`;
 
@@ -402,8 +402,7 @@ canvas.addEventListener('pointermove', (e) => {
 
   if (drawing && tool === 'brush') {
     const color = colorPicker.value;
-    const size  = Number(sizeSlider.value);
-    socket.emit('draw:segment', { x1: lastWX, y1: lastWY, x2: x, y2: y, color, size });
+    socket.emit('draw:segment', { x1: lastWX, y1: lastWY, x2: x, y2: y, color, size: 1 });
     lastWX = x; lastWY = y;
     currentStrokePoints.push({ x, y });
     scheduleRender();
@@ -426,7 +425,7 @@ canvas.addEventListener('pointerup', (e) => {
   if (drawing && tool === 'brush') {
     drawing = false;
     if (currentStrokePoints.length >= 2) {
-      const sd = { points: currentStrokePoints, color: colorPicker.value, size: Number(sizeSlider.value) };
+      const sd = { points: currentStrokePoints, color: colorPicker.value, size: 1 };
       events.push({ type: 'stroke', ...sd });
       socket.emit('draw:stroke', sd);
       rebuildMinimap();
@@ -440,7 +439,7 @@ canvas.addEventListener('pointerleave', () => {
   if (drawing) {
     drawing = false;
     if (currentStrokePoints.length >= 2) {
-      const sd = { points: currentStrokePoints, color: colorPicker.value, size: Number(sizeSlider.value) };
+      const sd = { points: currentStrokePoints, color: colorPicker.value, size: 1 };
       events.push({ type: 'stroke', ...sd });
       socket.emit('draw:stroke', sd);
       rebuildMinimap();
@@ -456,17 +455,17 @@ canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 canvas.addEventListener('click', (e) => {
   if (tool !== 'text' || isPanning || spaceDown || !canDraw()) return;
   const { sx, sy } = screenCoords(e);
-  const { x, y }   = screenToWorld(sx, sy);
-  const fontSize    = Math.max(14, Number(sizeSlider.value) * 2);
-  const color       = colorPicker.value;
+  const { x, y } = screenToWorld(sx, sy);
+  const fontSize = 14;
+  const color = colorPicker.value;
 
   const input = document.createElement('input');
   input.type = 'text';
   input.className = 'canvas-text-input';
-  input.style.left     = `${sx}px`;
-  input.style.top      = `${sy - fontSize * zoom}px`;
+  input.style.left = `${sx}px`;
+  input.style.top = `${sy - fontSize * zoom}px`;
   input.style.fontSize = `${fontSize * zoom}px`;
-  input.style.color    = color;
+  input.style.color = color;
   canvasWrap.appendChild(input);
   input.focus();
 
@@ -481,7 +480,7 @@ canvas.addEventListener('click', (e) => {
   }
 
   input.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Enter')  { ev.preventDefault(); commitText(); }
+    if (ev.key === 'Enter') { ev.preventDefault(); commitText(); }
     if (ev.key === 'Escape') { if (canvasWrap.contains(input)) canvasWrap.removeChild(input); }
   });
   input.addEventListener('blur', commitText);
@@ -572,7 +571,7 @@ socket.on('cursor:remove', (id) => {
 socket.on('user:list', (users) => {
   userListEl.innerHTML = '';
   for (const u of users) {
-    const li  = document.createElement('li');
+    const li = document.createElement('li');
     const dot = document.createElement('span');
     dot.className = 'dot';
     dot.style.background = u.color;
@@ -583,7 +582,7 @@ socket.on('user:list', (users) => {
 });
 
 socket.on('chat:message', ({ name, color, text, ts }) => {
-  const div    = document.createElement('div');
+  const div = document.createElement('div');
   div.className = 'chat-msg';
   const header = document.createElement('div');
   header.className = 'msg-header';
@@ -648,9 +647,9 @@ nameInput.focus();
 
 // ── Resize ────────────────────────────────────────────────────────────────────
 function resizeCanvases() {
-  canvas.width        = canvasWrap.clientWidth;
-  canvas.height       = canvasWrap.clientHeight;
-  cursorCanvas.width  = canvas.width;
+  canvas.width = canvasWrap.clientWidth;
+  canvas.height = canvasWrap.clientHeight;
+  cursorCanvas.width = canvas.width;
   cursorCanvas.height = canvas.height;
 }
 window.addEventListener('resize', () => { resizeCanvases(); scheduleRender(); });
@@ -661,7 +660,7 @@ let ambRunning = true;
 
 function initAmbient() {
   if (!ambCanvas || !ambCtx) return;
-  ambCanvas.width  = window.innerWidth;
+  ambCanvas.width = window.innerWidth;
   ambCanvas.height = window.innerHeight;
 }
 
@@ -671,12 +670,12 @@ const ambParticles = Array.from({ length: AMB_COUNT }, () => null);
 function resetParticle(i) {
   if (!ambCanvas) return;
   ambParticles[i] = {
-    x:  Math.random() * ambCanvas.width,
-    y:  Math.random() * ambCanvas.height,
+    x: Math.random() * ambCanvas.width,
+    y: Math.random() * ambCanvas.height,
     vx: (Math.random() - 0.5) * 0.35,
     vy: (Math.random() - 0.5) * 0.35,
-    r:  Math.random() * 1.4 + 0.3,
-    a:  Math.random() * 0.09 + 0.025,
+    r: Math.random() * 1.4 + 0.3,
+    a: Math.random() * 0.09 + 0.025,
   };
 }
 
