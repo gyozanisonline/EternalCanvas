@@ -359,6 +359,8 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #cursors {
@@ -898,4 +900,81 @@ body {
 ::-webkit-scrollbar-thumb {
   background: var(--dim);
   border-radius: 2px;
+}
+
+/* ── Mobile sidebar toggle (hidden on desktop) ─────────────────────────────── */
+#sidebar-toggle,
+#sidebar-toggle-divider {
+  display: none;
+}
+
+#sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .4);
+  z-index: 40;
+  backdrop-filter: blur(2px);
+}
+
+/* ── Mobile ────────────────────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+
+  /* Sidebar slides in from the right as an overlay */
+  #sidebar {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(300px, 88vw);
+    transform: translateX(100%);
+    transition: transform .25s ease;
+    z-index: 50;
+    box-shadow: -4px 0 32px rgba(0, 0, 0, .4);
+  }
+
+  #sidebar.open {
+    transform: translateX(0);
+  }
+
+  #sidebar-backdrop.open {
+    display: block;
+  }
+
+  /* Show the toggle button in the toolbar */
+  #sidebar-toggle,
+  #sidebar-toggle-divider {
+    display: flex;
+  }
+
+  /* Larger touch targets */
+  .tool-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  /* Keyboard shortcuts tab is irrelevant on mobile */
+  #controls-tab {
+    display: none;
+  }
+
+  /* Minimap — smaller to save space */
+  #minimap {
+    width: 110px;
+    height: 83px;
+  }
+
+  #minimap-container {
+    bottom: 82px;
+    right: 10px;
+  }
+
+  /* HUD and credit sit above toolbar */
+  #viewport-hud {
+    bottom: 80px;
+  }
+
+  #site-credit {
+    bottom: 94px;
+  }
 }

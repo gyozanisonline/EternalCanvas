@@ -35,6 +35,10 @@ const devClearBtn = document.getElementById('dev-clear-btn');
 const devBgColor = document.getElementById('dev-bg-color');
 const devStrokeColor = document.getElementById('dev-stroke-color');
 
+const sidebarEl = document.getElementById('sidebar');
+const sidebarToggle = document.getElementById('sidebar-toggle');
+const sidebarBackdrop = document.getElementById('sidebar-backdrop');
+
 // ── Contexts ──────────────────────────────────────────────────────────────────
 const ctx = canvas.getContext('2d');
 const curCtx = cursorCanvas.getContext('2d');
@@ -783,6 +787,24 @@ function sendChat() {
 }
 chatSend.addEventListener('click', sendChat);
 chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
+
+// ── Mobile sidebar toggle ─────────────────────────────────────────────────────
+function openSidebar() {
+  sidebarEl.classList.add('open');
+  sidebarBackdrop.classList.add('open');
+}
+function closeSidebar() {
+  sidebarEl.classList.remove('open');
+  sidebarBackdrop.classList.remove('open');
+}
+if (sidebarToggle) {
+  sidebarToggle.addEventListener('click', () => {
+    sidebarEl.classList.contains('open') ? closeSidebar() : openSidebar();
+  });
+}
+if (sidebarBackdrop) {
+  sidebarBackdrop.addEventListener('click', closeSidebar);
+}
 
 // ── Controls tab toggle ───────────────────────────────────────────────────────
 const controlsToggle = document.getElementById('controls-toggle');
