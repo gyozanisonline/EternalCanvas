@@ -196,6 +196,7 @@ io.on('connection', (socket) => {
 });
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
+console.log(`Node.js ${process.version}`);
 connectDB().then(() => {
   loadCanvas().then(() => {
     scheduleReset();
