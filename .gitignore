@@ -1,3 +1,4 @@
 node_modules/
-data/canvas.json
+data/
+.env
 .DS_Store
