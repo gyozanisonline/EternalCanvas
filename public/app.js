@@ -334,12 +334,13 @@ toolBrush.addEventListener('click', () => setTool('brush'));
 toolText.addEventListener('click', () => setTool('text'));
 sizeSlider.addEventListener('input', () => { sizeLabel.textContent = sizeSlider.value; });
 
-// ── Undo (local + server) ─────────────────────────────────────────────────────
+// ── Undo (local + server, one-shot per action) ───────────────────────────────
+let undoAvailable = false; // Only true after committing a new stroke/text
+
 function undoLast() {
-  // Remove the last event this user contributed locally
-  // (the server will also splice and broadcast canvas:undo with the new state)
+  if (!undoAvailable) return; // already used — commit something new first
+  undoAvailable = false;
   socket.emit('undo');
-  // Optimistically remove our last event locally for immediate feedback
   for (let i = events.length - 1; i >= 0; i--) {
     if (!events[i].userId || events[i].userId === socket.id) {
       events.splice(i, 1);
@@ -458,6 +459,7 @@ canvas.addEventListener('pointerup', (e) => {
       events.push({ type: 'stroke', ...sd });
       socket.emit('draw:stroke', sd);
       rebuildMinimap();
+      undoAvailable = true; // one undo allowed after committing
     }
     currentStrokePoints = [];
     scheduleRender();
@@ -472,6 +474,7 @@ canvas.addEventListener('pointerleave', () => {
       events.push({ type: 'stroke', ...sd });
       socket.emit('draw:stroke', sd);
       rebuildMinimap();
+      undoAvailable = true;
     }
     currentStrokePoints = [];
     scheduleRender();
@@ -505,6 +508,7 @@ canvas.addEventListener('click', (e) => {
     events.push({ type: 'text', x, y, text, color, fontSize });
     socket.emit('draw:text', { x, y, text, color, fontSize });
     rebuildMinimap();
+    undoAvailable = true;
     scheduleRender();
   }
 
@@ -766,52 +770,89 @@ function resizeCanvases() {
 }
 window.addEventListener('resize', () => { resizeCanvases(); scheduleRender(); });
 
-// ── Ambient modal animation ───────────────────────────────────────────────────
-// Slow-drifting warm particles — the Way of Code feeling
+// ── Ambient modal animation — Drawing Bots ───────────────────────────────────
+// Autonomous bots that wander around and draw random strokes
 let ambRunning = true;
+
+const BOT_COUNT = 8;
+const BOT_COLORS = [
+  '#c8785a', // accent clay
+  '#5a8ab4', // steel blue
+  '#7ab87a', // sage green
+  '#b47ab4', // muted violet
+  '#b4a05a', // warm gold
+  '#5ab4a0', // teal
+  '#b45a5a', // muted rose
+  '#8ab47a', // moss
+];
+
+const bots = [];
 
 function initAmbient() {
   if (!ambCanvas || !ambCtx) return;
   ambCanvas.width = window.innerWidth;
   ambCanvas.height = window.innerHeight;
+
+  // White background to start
+  ambCtx.fillStyle = '#ffffff';
+  ambCtx.fillRect(0, 0, ambCanvas.width, ambCanvas.height);
+
+  // Create bots scattered around the screen
+  bots.length = 0;
+  for (let i = 0; i < BOT_COUNT; i++) {
+    bots.push(makeBot(i));
+  }
 }
 
-const AMB_COUNT = 55;
-const ambParticles = Array.from({ length: AMB_COUNT }, () => null);
-
-function resetParticle(i) {
-  if (!ambCanvas) return;
-  ambParticles[i] = {
+function makeBot(i) {
+  return {
     x: Math.random() * ambCanvas.width,
     y: Math.random() * ambCanvas.height,
-    vx: (Math.random() - 0.5) * 0.35,
-    vy: (Math.random() - 0.5) * 0.35,
-    r: Math.random() * 1.4 + 0.3,
-    a: Math.random() * 0.09 + 0.025,
+    angle: Math.random() * Math.PI * 2,
+    speed: 0.8 + Math.random() * 1.4,
+    angularVel: (Math.random() - 0.5) * 0.12, // baseline turn rate
+    color: BOT_COLORS[i % BOT_COLORS.length],
+    size: 1 + Math.random() * 1.5,
+    jitterTimer: 0,
+    jitterInterval: 40 + Math.floor(Math.random() * 80), // frames between direction changes
+    alpha: 0.28 + Math.random() * 0.22,
   };
 }
-
-ambParticles.forEach((_, i) => resetParticle(i));
 
 function animateAmbient() {
   if (!ambRunning || !ambCanvas || !ambCtx) return;
 
-  // Fade trail — warm overlay
-  ambCtx.fillStyle = 'rgba(23,22,20,0.18)';
-  ambCtx.fillRect(0, 0, ambCanvas.width, ambCanvas.height);
+  for (const bot of bots) {
+    const prevX = bot.x;
+    const prevY = bot.y;
 
-  for (let i = 0; i < AMB_COUNT; i++) {
-    const p = ambParticles[i];
-    p.x += p.vx;
-    p.y += p.vy;
-    if (p.x < -10 || p.x > ambCanvas.width + 10 || p.y < -10 || p.y > ambCanvas.height + 10) {
-      resetParticle(i);
-      continue;
+    // Periodically adjust angular velocity for wiggly paths
+    bot.jitterTimer++;
+    if (bot.jitterTimer >= bot.jitterInterval) {
+      bot.jitterTimer = 0;
+      bot.jitterInterval = 40 + Math.floor(Math.random() * 80);
+      bot.angularVel = (Math.random() - 0.5) * 0.18;
     }
+
+    // Add tiny per-frame noise on top
+    bot.angle += bot.angularVel + (Math.random() - 0.5) * 0.04;
+    bot.x += Math.cos(bot.angle) * bot.speed;
+    bot.y += Math.sin(bot.angle) * bot.speed;
+
+    // Wrap around edges
+    if (bot.x < -20) bot.x = ambCanvas.width + 20;
+    if (bot.x > ambCanvas.width + 20) bot.x = -20;
+    if (bot.y < -20) bot.y = ambCanvas.height + 20;
+    if (bot.y > ambCanvas.height + 20) bot.y = -20;
+
+    // Draw line segment
     ambCtx.beginPath();
-    ambCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-    ambCtx.fillStyle = `rgba(232,230,220,${p.a})`;
-    ambCtx.fill();
+    ambCtx.moveTo(prevX, prevY);
+    ambCtx.lineTo(bot.x, bot.y);
+    ambCtx.strokeStyle = bot.color + Math.round(bot.alpha * 255).toString(16).padStart(2, '0');
+    ambCtx.lineWidth = bot.size;
+    ambCtx.lineCap = 'round';
+    ambCtx.stroke();
   }
 
   requestAnimationFrame(animateAmbient);
@@ -821,3 +862,4 @@ function stopAmbient() { ambRunning = false; }
 
 initAmbient();
 animateAmbient();
+
