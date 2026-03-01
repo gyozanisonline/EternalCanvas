@@ -101,6 +101,22 @@ io.on('connection', (socket) => {
     socket.broadcast.emit('draw:segment', { ...data, userId: socket.id });
   });
 
+  // ── Undo: remove this user's last draw event ──────────────────────────────
+  socket.on('undo', () => {
+    const user = users[socket.id];
+    if (!user) return;
+    // Find the last event that belongs to this user
+    for (let i = canvasEvents.length - 1; i >= 0; i--) {
+      if (canvasEvents[i].userId === socket.id) {
+        canvasEvents.splice(i, 1);
+        saveCanvas();
+        // Tell everyone (including the sender) to re-render from the new state
+        io.emit('canvas:undo', canvasEvents);
+        break;
+      }
+    }
+  });
+
   // ── Cursor movement (not stored, ephemeral) ───────────────────────────────
   socket.on('cursor:move', ({ x, y }) => {
     const user = users[socket.id];
@@ -115,6 +131,7 @@ io.on('connection', (socket) => {
     const trimmedText = String(text).trim().slice(0, 500);
     if (!trimmedText) return;
     const msg = {
+      senderId: socket.id,   // used by client to attach bubble to the right cursor
       name: user.name,
       color: user.color,
       text: trimmedText,

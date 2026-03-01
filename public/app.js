@@ -287,6 +287,8 @@ function redrawCursors() {
     curCtx.fillStyle = 'rgba(255,255,255,.92)';
     curCtx.fillText(name, lx + 1, ly);
   }
+  // Draw floating chat bubbles on top of cursors
+  drawChatBubbles();
 }
 
 // ── App state ─────────────────────────────────────────────────────────────────
@@ -294,6 +296,16 @@ const socket = io();
 let myName = '', myColor = '#1F1E1D', tool = 'brush';
 let drawing = false, lastWX = 0, lastWY = 0;
 let currentStrokePoints = [];
+
+// ── Segment batching ─────────────────────────────────────────────────────────
+// Accumulate draw:segment calls and flush every 50ms instead of per-mousemove
+const segmentBuffer = [];
+setInterval(() => {
+  if (segmentBuffer.length === 0) return;
+  const batch = segmentBuffer.splice(0);
+  // Send each segment — could also send as array if server supports it
+  for (const seg of batch) socket.emit('draw:segment', seg);
+}, 50);
 
 // ── Pan state ─────────────────────────────────────────────────────────────────
 let isPanning = false, panStartSX = 0, panStartSY = 0;
@@ -321,6 +333,22 @@ function setTool(t) {
 toolBrush.addEventListener('click', () => setTool('brush'));
 toolText.addEventListener('click', () => setTool('text'));
 sizeSlider.addEventListener('input', () => { sizeLabel.textContent = sizeSlider.value; });
+
+// ── Undo (local + server) ─────────────────────────────────────────────────────
+function undoLast() {
+  // Remove the last event this user contributed locally
+  // (the server will also splice and broadcast canvas:undo with the new state)
+  socket.emit('undo');
+  // Optimistically remove our last event locally for immediate feedback
+  for (let i = events.length - 1; i >= 0; i--) {
+    if (!events[i].userId || events[i].userId === socket.id) {
+      events.splice(i, 1);
+      rebuildMinimap();
+      scheduleRender();
+      break;
+    }
+  }
+}
 colorPicker.addEventListener('input', () => { colorSwatch.style.background = colorPicker.value; });
 
 // ── Keyboard ──────────────────────────────────────────────────────────────────
@@ -333,6 +361,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === '+' || e.key === '=') zoomAround(canvas.width / 2, canvas.height / 2, 1.25);
   if (e.key === '-') zoomAround(canvas.width / 2, canvas.height / 2, 1 / 1.25);
   if (e.code === 'Space') { e.preventDefault(); if (!spaceDown) { spaceDown = true; updateCursor(); } }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undoLast(); }
 });
 document.addEventListener('keyup', (e) => {
   if (e.code === 'Space') { spaceDown = false; if (!isPanning) updateCursor(); }
@@ -401,8 +430,8 @@ canvas.addEventListener('pointermove', (e) => {
   }
 
   if (drawing && tool === 'brush') {
-    const color = colorPicker.value;
-    socket.emit('draw:segment', { x1: lastWX, y1: lastWY, x2: x, y2: y, color, size: 1 });
+    // Accumulate into segment buffer — flushed every 50ms by the batch timer
+    segmentBuffer.push({ x1: lastWX, y1: lastWY, x2: x, y2: y, color: colorPicker.value, size: 1 });
     lastWX = x; lastWY = y;
     currentStrokePoints.push({ x, y });
     scheduleRender();
@@ -534,11 +563,15 @@ socket.on('canvas:init', (serverEvents) => {
   scheduleRender();
 });
 
-socket.on('draw:segment', ({ userId, x1, y1, x2, y2, color, size }) => {
-  if (!remoteInProgress[userId]) {
-    remoteInProgress[userId] = { points: [{ x: x1, y: y1 }, { x: x2, y: y2 }], color, size };
-  } else {
-    remoteInProgress[userId].points.push({ x: x2, y: y2 });
+socket.on('draw:segment', (payload) => {
+  // Accept both single segment and batch array
+  const segs = Array.isArray(payload) ? payload : [payload];
+  for (const { userId, x1, y1, x2, y2, color, size } of segs) {
+    if (!remoteInProgress[userId]) {
+      remoteInProgress[userId] = { points: [{ x: x1, y: y1 }, { x: x2, y: y2 }], color, size };
+    } else {
+      remoteInProgress[userId].points.push({ x: x2, y: y2 });
+    }
   }
   scheduleRender();
 });
@@ -552,6 +585,15 @@ socket.on('draw:stroke', (data) => {
 
 socket.on('draw:text', (data) => {
   events.push(data);
+  rebuildMinimap();
+  scheduleRender();
+});
+
+// ── Undo: server replaced the canvas state — reload and re-render ─────────────
+socket.on('canvas:undo', (serverEvents) => {
+  events.length = 0;
+  for (const ev of serverEvents) events.push(ev);
+  // Also clear any in-progress remote stroke from that user
   rebuildMinimap();
   scheduleRender();
 });
@@ -581,7 +623,71 @@ socket.on('user:list', (users) => {
   }
 });
 
-socket.on('chat:message', ({ name, color, text, ts }) => {
+// ── Chat bubbles ──────────────────────────────────────────────────────────────
+// Each entry: { text, color, expiry } — painted on the cursor overlay
+const chatBubbles = {}; // senderId → { text, color, expiry }
+const BUBBLE_DURATION = 2600; // ms
+
+function drawChatBubbles() {
+  const now = Date.now();
+  for (const [id, b] of Object.entries(chatBubbles)) {
+    if (now > b.expiry) { delete chatBubbles[id]; continue; }
+
+    const cursor = id === socket.id
+      ? null  // our own messages don't need a cursor position
+      : remoteCursors[id];
+    if (!cursor && id !== socket.id) continue;
+
+    // Screen position
+    let sx, sy;
+    if (id === socket.id) continue;  // skip own bubble (you know what you typed)
+    const { x: wx, y: wy } = { x: cursor.wx, y: cursor.wy };
+    const sp = worldToScreen(wx, wy);
+    sx = sp.x; sy = sp.y;
+
+    const age = (now - (b.expiry - BUBBLE_DURATION)) / BUBBLE_DURATION;
+    const alpha = Math.max(0, 1 - Math.pow(age, 2.5)); // fade out
+
+    const PAD = 7;
+    const FONT = '400 11px Courier Prime, Courier New, monospace';
+    curCtx.font = FONT;
+    const tw = curCtx.measureText(b.text).width;
+    const bw = tw + PAD * 2;
+    const bh = 20;
+    const bx = sx - bw / 2;
+    const by = sy - 38 - bh;
+
+    // Bubble background
+    curCtx.fillStyle = `rgba(${hexToRgb(b.color)},${(alpha * 0.92).toFixed(2)})`;
+    if (curCtx.roundRect) {
+      curCtx.beginPath(); curCtx.roundRect(bx, by, bw, bh, 4); curCtx.fill();
+    } else {
+      curCtx.fillRect(bx, by, bw, bh);
+    }
+    // Tiny tail triangle
+    curCtx.beginPath();
+    curCtx.moveTo(sx - 5, by + bh);
+    curCtx.lineTo(sx + 5, by + bh);
+    curCtx.lineTo(sx, by + bh + 6);
+    curCtx.fillStyle = `rgba(${hexToRgb(b.color)},${(alpha * 0.92).toFixed(2)})`;
+    curCtx.fill();
+    // Text
+    curCtx.fillStyle = `rgba(255,255,255,${(alpha * 0.95).toFixed(2)})`;
+    curCtx.fillText(b.text, bx + PAD, by + 13);
+  }
+  // Schedule next frame if any bubble is still alive
+  if (Object.keys(chatBubbles).length > 0) scheduleRender();
+}
+
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `${r},${g},${b}`;
+}
+
+socket.on('chat:message', ({ senderId, name, color, text, ts }) => {
+  // ── Sidebar chat entry ──────────────────────────────────────────────────
   const div = document.createElement('div');
   div.className = 'chat-msg';
   const header = document.createElement('div');
@@ -602,6 +708,12 @@ socket.on('chat:message', ({ name, color, text, ts }) => {
   div.appendChild(textEl);
   chatMessages.appendChild(div);
   chatMessages.scrollTop = chatMessages.scrollHeight;
+
+  // ── Canvas bubble ───────────────────────────────────────────────────────
+  const maxLen = 38;
+  const displayText = text.length > maxLen ? text.slice(0, maxLen - 1) + '…' : text;
+  chatBubbles[senderId] = { text: displayText, color, expiry: Date.now() + BUBBLE_DURATION };
+  scheduleRender();
 });
 
 // ── Chat ──────────────────────────────────────────────────────────────────────
