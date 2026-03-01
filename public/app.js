@@ -340,6 +340,24 @@ toolBrush.addEventListener('click', () => setTool('brush'));
 toolText.addEventListener('click', () => setTool('text'));
 sizeSlider.addEventListener('input', () => { sizeLabel.textContent = sizeSlider.value; });
 
+// ── Save canvas as PNG ────────────────────────────────────────────────────────
+function savePNG() {
+  const offscreen = document.createElement('canvas');
+  offscreen.width = WORLD_W;
+  offscreen.height = WORLD_H;
+  const offCtx = offscreen.getContext('2d');
+  offCtx.fillStyle = '#FAFAF7';
+  offCtx.fillRect(0, 0, WORLD_W, WORLD_H);
+  for (const ev of events) {
+    if (ev.type === 'stroke') renderStroke(offCtx, ev);
+    if (ev.type === 'text') renderText(offCtx, ev);
+  }
+  const a = document.createElement('a');
+  a.download = 'eternal-canvas.png';
+  a.href = offscreen.toDataURL('image/png');
+  a.click();
+}
+
 // ── Undo (local + server, one-shot per action) ───────────────────────────────
 let undoAvailable = false; // Only true after committing a new stroke/text
 
