@@ -18,7 +18,7 @@
   <div id="modal-overlay">
     <canvas id="ambient-canvas"></canvas>
     <div id="modal">
-      <div id="modal-eyebrow">Eternal Canvas</div>
+      <div id="modal-eyebrow">Eternal<br />Canvas</div>
       <p id="rotating-phrase">Draw your heart out!</p>
       <p>Draw, write, explore — with anyone who has the link. Your canvas persists.</p>
       <div id="name-input-wrap">
@@ -32,6 +32,30 @@
         reset &nbsp;·&nbsp; R
       </div>
     </div>
+  </div>
+
+  <!-- ── Developer Panel (Hidden by default) ─────────────────────────────── -->
+  <div id="dev-panel" class="hidden">
+    <button id="dev-close">×</button>
+    <div id="dev-header">Developer Controls</div>
+
+    <div class="dev-section">
+      <div class="dev-label">Danger Zone</div>
+      <button id="dev-clear-btn" class="dev-action-btn danger">Force Clear Canvas</button>
+    </div>
+
+    <div class="dev-section">
+      <div class="dev-label">Theme Settings</div>
+      <div class="dev-row">
+        <span>Canvas BG:</span>
+        <input type="color" id="dev-bg-color" value="#ffffff" />
+      </div>
+      <div class="dev-row">
+        <span>Border Stroke:</span>
+        <input type="color" id="dev-stroke-color" value="#000000" />
+      </div>
+    </div>
+  </div>
   </div>
 
   <!-- ── Main app ────────────────────────────────────────────────────────── -->
@@ -127,7 +151,10 @@
         <div id="zoom-hint">zoom in to draw</div>
 
         <!-- Minimap -->
-        <canvas id="minimap" title="Click to jump to location"></canvas>
+        <div id="minimap-container">
+          <div id="minimap-label">minimap</div>
+          <canvas id="minimap" title="Click to jump to location"></canvas>
+        </div>
 
         <!-- Viewport HUD -->
         <div id="viewport-hud">

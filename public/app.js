@@ -29,6 +29,12 @@ const chatMessages = document.getElementById('chat-messages');
 const chatInput = document.getElementById('chat-input');
 const chatSend = document.getElementById('chat-send');
 
+const devPanel = document.getElementById('dev-panel');
+const devCloseBtn = document.getElementById('dev-close');
+const devClearBtn = document.getElementById('dev-clear-btn');
+const devBgColor = document.getElementById('dev-bg-color');
+const devStrokeColor = document.getElementById('dev-stroke-color');
+
 // ── Contexts ──────────────────────────────────────────────────────────────────
 const ctx = canvas.getContext('2d');
 const curCtx = cursorCanvas.getContext('2d');
@@ -148,11 +154,11 @@ function scheduleRender() {
 function renderViewport() {
   renderScheduled = false;
 
-  // Warm dark background
-  ctx.fillStyle = '#171614';
+  // Background behind canvas
+  ctx.fillStyle = devBgColor.value;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Dot grid — screen-space, drifts with pan to feel spatially anchored
+  // Dot grid
   drawDotGrid();
 
   // World-space transform
@@ -185,8 +191,8 @@ function renderViewport() {
   }
 
   // Subtle world border
-  ctx.strokeStyle = 'rgba(30,25,20,.12)';
-  ctx.lineWidth = 2 / zoom;
+  ctx.strokeStyle = devStrokeColor.value;
+  ctx.lineWidth = 3 / zoom;
   ctx.strokeRect(0, 0, WORLD_W, WORLD_H);
 
   ctx.restore();
@@ -206,7 +212,7 @@ function drawDotGrid() {
   const S = 24;
   const ox = ((panX % S) + S) % S;
   const oy = ((panY % S) + S) % S;
-  ctx.fillStyle = 'rgba(232,230,220,.04)';
+  ctx.fillStyle = 'rgba(180,160,100,.1)';
   for (let x = ox; x < canvas.width; x += S)
     for (let y = oy; y < canvas.height; y += S)
       ctx.fillRect(x - 1, y - 1, 2, 2);
@@ -802,37 +808,51 @@ function spawnNearDoodles() {
   showExploreToast();
 }
 
-// ── Join ──────────────────────────────────────────────────────────────────────
-function join() {
-  const name = nameInput.value.trim() || 'Anonymous';
-  socket.emit('join', { name });
-  myName = name;
+// ── Developer Panel Logic ─────────────────────────────────────────────────────
+devCloseBtn.addEventListener('click', () => devPanel.classList.add('hidden'));
 
-  socket.once('user:list', (users) => {
-    const me = users.find(u => u.name === myName);
-    if (me) {
-      myColor = me.color;
-      colorPicker.value = myColor;
-      colorSwatch.style.background = myColor;
-      userDot.style.background = myColor;
-    }
-  });
+devBgColor.addEventListener('input', scheduleRender);
+devStrokeColor.addEventListener('input', scheduleRender);
 
-  userNameDisp.textContent = name;
+devClearBtn.addEventListener('click', () => {
+  if (confirm("Are you sure? This will wipe the entire canvas globally!")) {
+    socket.emit('admin:force_clear'); // We will add this event to the server
+    devPanel.classList.add('hidden');
+  }
+});
+
+// ── Startup ───────────────────────────────────────────────────────────────────
+joinBtn.addEventListener('click', () => {
+  const n = nameInput.value.trim();
+  if (!n) return;
+
+  if (n.toLowerCase() === 'kimchilover') {
+    devPanel.classList.remove('hidden');
+    nameInput.value = '';
+    return; // Don't actually join as "kimchilover"
+  }
+
+  myName = n;
+  myColor = `hsl(${Math.floor(Math.random() * 360)}, 65%, 45%)`;
+  document.documentElement.style.setProperty('--accent', myColor);
+  colorPicker.value = '#1F1E1D'; // Default brush ink
+  colorSwatch.style.background = '#1F1E1D';
+  userDot.style.background = myColor;
+  userNameDisp.textContent = myName + ' (you)';
+
+  socket.emit('user:join', { name: myName, color: myColor });
+
   modalOverlay.style.display = 'none';
-  stopAmbient();
-  if (phraseInterval) { clearInterval(phraseInterval); phraseInterval = null; }
+  if (ambCanvas) ambCanvas.style.display = 'none';
   appEl.classList.remove('hidden');
-  resizeCanvases();
+  resizeCanvases(); // Added from original join
   initViewport();
-  rebuildMinimap();
+  rebuildMinimap(); // Added from original join
   renderViewport();
-  setTool('brush');
+  setTool('brush'); // Added from original join
   spawnNearDoodles();
-}
-
-joinBtn.addEventListener('click', join);
-nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') join(); });
+});
+nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') joinBtn.click(); }); // Changed to click joinBtn
 nameInput.focus();
 
 // ── Rotating phrases ──────────────────────────────────────────────────────────

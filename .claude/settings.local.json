@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e:*)",
+      "WebFetch(domain:prismic.io)",
+      "WebFetch(domain:codepen.io)",
+      "WebFetch(domain:www.thewayofcode.com)"
+    ]
+  }
+}

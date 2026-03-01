@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CSS Animations Library</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0e0e0e;
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 3rem 2rem 2rem;
+      text-align: center;
+      border-bottom: 1px solid #222;
+    }
+
+    header h1 {
+      font-size: 2.4rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: #fff;
+    }
+
+    header p {
+      margin-top: 0.5rem;
+      color: #888;
+      font-size: 0.95rem;
+    }
+
+    nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      justify-content: center;
+      padding: 1.5rem 2rem;
+      position: sticky;
+      top: 0;
+      background: #0e0e0e;
+      z-index: 10;
+      border-bottom: 1px solid #1a1a1a;
+    }
+
+    nav a {
+      text-decoration: none;
+      color: #aaa;
+      font-size: 0.82rem;
+      font-weight: 500;
+      padding: 0.35rem 0.85rem;
+      border: 1px solid #333;
+      border-radius: 999px;
+      transition: all 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    nav a:hover {
+      color: #fff;
+      border-color: #666;
+      background: #1a1a1a;
+    }
+
+    main {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    .category {
+      margin-bottom: 4rem;
+    }
+
+    .category-header {
+      display: flex;
+      align-items: baseline;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid #1e1e1e;
+    }
+
+    .category-header h2 {
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .category-header span {
+      font-size: 0.8rem;
+      color: #555;
+      font-weight: 400;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(460px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .card {
+      background: #141414;
+      border: 1px solid #222;
+      border-radius: 10px;
+      overflow: hidden;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .card:hover {
+      border-color: #444;
+      transform: translateY(-2px);
+    }
+
+    .card-label {
+      padding: 0.65rem 1rem;
+      font-size: 0.78rem;
+      color: #666;
+      font-weight: 500;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #1e1e1e;
+      letter-spacing: 0.02em;
+    }
+
+    .card-label a {
+      color: #555;
+      text-decoration: none;
+      font-size: 0.72rem;
+    }
+
+    .card-label a:hover { color: #aaa; }
+
+    iframe {
+      display: block;
+      width: 100%;
+      height: 300px;
+      border: none;
+      background: #fff;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>CSS Animations Library</h1>
+  <p>37 curated animations across 8 categories — sourced from Prismic's CSS Animation Examples</p>
+</header>
+
+<nav>
+  <a href="#text">Text</a>
+  <a href="#hover">Hover</a>
+  <a href="#button">Button</a>
+  <a href="#click">Click</a>
+  <a href="#loading">Loading</a>
+  <a href="#menu">Menu</a>
+  <a href="#card">Card</a>
+  <a href="#other">Other</a>
+</nav>
+
+<main>
+
+  <!-- TEXT -->
+  <section class="category" id="text">
+    <div class="category-header">
+      <h2>Text Animations</h2>
+      <span>4 examples</span>
+    </div>
+    <div class="grid">
+
+      <div class="card">
+        <div class="card-label">
+          Vertical Text Flip
+          <a href="https://codepen.io/yemon/pen/pWoROm" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/yemon/embed/pWoROm?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          Animated Text Gradient
+          <a href="https://codepen.io/kh-mamun/pen/NdwZdW" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/kh-mamun/embed/NdwZdW?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          Text Reveal / Typewriter
+          <a href="https://codepen.io/oliviale/pen/YgzNzK" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/oliviale/embed/YgzNzK?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          Glitch Text Effect
+          <a href="https://codepen.io/davideast/pen/vYPZdWV" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/davideast/embed/vYPZdWV?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- HOVER -->
+  <section class="category" id="hover">
+    <div class="category-header">
+      <h2>Hover Animations</h2>
+      <span>5 examples</span>
+    </div>
+    <div class="grid">
+
+      <div class="card">
+        <div class="card-label">
+          Image Hover Zoom
+          <a href="https://codepen.io/jakegilesphillips/pen/MveNLe" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/jakegilesphillips/embed/MveNLe?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          Hover Link Underline
+          <a href="https://codepen.io/jh3y/pen/oNqdmbW" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/jh3y/embed/oNqdmbW?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          3D Card Tilt
+          <a href="https://codepen.io/onediv/pen/zYEZXdz" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/onediv/embed/zYEZXdz?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          Magnetic Hover
+          <a href="https://codepen.io/jh3y/pen/JjxPKXz" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/jh3y/embed/JjxPKXz?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          Ripple Hover
+          <a href="https://codepen.io/davideast/pen/MWxvzjm" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/davideast/embed/MWxvzjm?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- BUTTON -->
+  <section class="category" id="button">
+    <div class="category-header">
+      <h2>Button Animations</h2>
+      <span>5 examples</span>
+    </div>
+    <div class="grid">
+
+      <div class="card">
+        <div class="card-label">
+          Neon Glow Button
+          <a href="https://codepen.io/jcoulterdesign/pen/xVJWvz" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/jcoulterdesign/embed/xVJWvz?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          Animated Border Button
+          <a href="https://codepen.io/LukyVj/pen/oNPJrdy" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/LukyVj/embed/oNPJrdy?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          Fill Slide Button
+          <a href="https://codepen.io/LukyVj/pen/LYJBdYo" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/LukyVj/embed/LYJBdYo?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          Shaking Button
+          <a href="https://codepen.io/jwktje/pen/JjBaJBv" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/jwktje/embed/JjBaJBv?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          Morphing Button
+          <a href="https://codepen.io/jkantner/pen/OJNezxj" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/jkantner/embed/OJNezxj?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- CLICK -->
+  <section class="category" id="click">
+    <div class="category-header">
+      <h2>Click Animations</h2>
+      <span>5 examples</span>
+    </div>
+    <div class="grid">
+
+      <div class="card">
+        <div class="card-label">
+          Like / Heart Burst
+          <a href="https://codepen.io/jh3y/pen/ExNQxKV" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/jh3y/embed/ExNQxKV?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          Checkbox Bounce
+          <a href="https://codepen.io/arjunace/pen/dyMdbyr" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/arjunace/embed/dyMdbyr?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          Toggle Switch
+          <a href="https://codepen.io/brandonmcconnell/pen/bzwMxx" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/brandonmcconnell/embed/bzwMxx?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          SVG Path Draw
+          <a href="https://codepen.io/ainalem/pen/mQBNpg" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/ainalem/embed/mQBNpg?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          Confetti Burst
+          <a href="https://codepen.io/jenning/pen/LYWJdWz" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/jenning/embed/LYWJdWz?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- LOADING -->
+  <section class="category" id="loading">
+    <div class="category-header">
+      <h2>Loading Animations</h2>
+      <span>5 examples</span>
+    </div>
+    <div class="grid">
+
+      <div class="card">
+        <div class="card-label">
+          Bouncing Dots Loader
+          <a href="https://codepen.io/arushi011/pen/EXmMvx" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/arushi011/embed/EXmMvx?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          Progress Bar Loader
+          <a href="https://codepen.io/Curlmuhi/pen/ExKWXKO" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/Curlmuhi/embed/ExKWXKO?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          Pulse / Radar Loader
+          <a href="https://codepen.io/pawelqcm/pen/ObwyNe" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/pawelqcm/embed/ObwyNe?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          Skeleton Screen
+          <a href="https://codepen.io/tippyfodder/pen/OyXWpr" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/tippyfodder/embed/OyXWpr?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          Spinning Ring Loader
+          <a href="https://codepen.io/kkrueger/pen/jOrYaM" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/kkrueger/embed/jOrYaM?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- MENU -->
+  <section class="category" id="menu">
+    <div class="category-header">
+      <h2>Menu Animations</h2>
+      <span>5 examples</span>
+    </div>
+    <div class="grid">
+
+      <div class="card">
+        <div class="card-label">
+          Hamburger to X
+          <a href="https://codepen.io/tonkec/pen/aRMaWR" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/tonkec/embed/aRMaWR?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          Slide-in Nav
+          <a href="https://codepen.io/pgalor/pen/mKGdwr" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/pgalor/embed/mKGdwr?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          Dropdown Reveal
+          <a href="https://codepen.io/FUGU22/pen/bYbNaY" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/FUGU22/embed/bYbNaY?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          Staggered Menu Items
+          <a href="https://codepen.io/jsulpis/pen/VwBNoEb" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/jsulpis/embed/VwBNoEb?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          Morphing Hamburger
+          <a href="https://codepen.io/aaroniker/pen/yLEPJXj" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/aaroniker/embed/yLEPJXj?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- CARD -->
+  <section class="category" id="card">
+    <div class="category-header">
+      <h2>Card Animations</h2>
+      <span>5 examples</span>
+    </div>
+    <div class="grid">
+
+      <div class="card">
+        <div class="card-label">
+          Card Flip 3D
+          <a href="https://codepen.io/BlogFire/pen/mdXNMVX" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/BlogFire/embed/mdXNMVX?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          Card Slide Reveal
+          <a href="https://codepen.io/tobiasdev/pen/XjyaKr" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/tobiasdev/embed/XjyaKr?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          Stacked Cards
+          <a href="https://codepen.io/amit_sheen/pen/QWGjRKR" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/amit_sheen/embed/QWGjRKR?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          Card Hover Lift
+          <a href="https://codepen.io/tdoughty/pen/bGGZWqg" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/tdoughty/embed/bGGZWqg?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          Glassmorphism Card
+          <a href="https://codepen.io/kevin_David_k/pen/eYNeQVY" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/kevin_David_k/embed/eYNeQVY?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- OTHER -->
+  <section class="category" id="other">
+    <div class="category-header">
+      <h2>Other Creative Animations</h2>
+      <span>3 examples</span>
+    </div>
+    <div class="grid">
+
+      <div class="card">
+        <div class="card-label">
+          Scroll Progress Bar
+          <a href="https://codepen.io/thathurtabit/pen/bgWdge" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/thathurtabit/embed/bgWdge?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+      <div class="card">
+        <div class="card-label">
+          Particle Burst
+          <a href="https://codepen.io/ajerez/pen/EaEEOW" target="_blank">CodePen ↗</a>
+        </div>
+        <iframe src="https://codepen.io/ajerez/embed/EaEEOW?default-tab=result&theme-id=dark" loading="lazy" allowfullscreen></iframe>
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+</body>
+</html>

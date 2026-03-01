@@ -154,6 +154,16 @@ io.on('connection', (socket) => {
     socket.broadcast.emit('cursor:update', { id: socket.id, name: user.name, color: user.color, x, y });
   });
 
+  // ── Admin ─────────────────────────────────────────────────────────────────
+  socket.on('admin:force_clear', () => {
+    // Hidden back door to completely wipe canvas
+    console.log(`Canvas force cleared by admin socket: ${socket.id}`);
+    canvasEvents = [];
+    nextResetAt = Date.now() + RESET_INTERVAL_MS;
+    saveCanvas();
+    io.emit('canvas:reset', { nextResetAt });
+  });
+
   // ── Chat message ──────────────────────────────────────────────────────────
   socket.on('chat:message', ({ text }) => {
     const user = users[socket.id];

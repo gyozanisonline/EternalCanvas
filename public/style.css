@@ -74,7 +74,8 @@ body {
   border: 1px solid rgba(200, 120, 90, .18);
   border-radius: 4px;
   padding: 44px 52px 40px;
-  width: 380px;
+  width: 100%;
+  max-width: 480px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -84,7 +85,8 @@ body {
 }
 
 #modal-eyebrow {
-  font-size: .85rem;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 2rem;
   letter-spacing: .18em;
   text-transform: uppercase;
   color: var(--accent);
@@ -109,9 +111,9 @@ body {
   margin-bottom: 8px;
 }
 
-#rotating-phrase {
+#modal #rotating-phrase {
   font-family: Georgia, 'Times New Roman', serif;
-  font-size: 2.6rem;
+  font-size: 3.8rem;
   font-weight: 400;
   letter-spacing: -.025em;
   line-height: 1.12;
@@ -123,7 +125,7 @@ body {
   transition: opacity 0.4s ease;
 }
 
-#rotating-phrase.fade-out {
+#modal #rotating-phrase.fade-out {
   opacity: 0;
 }
 
@@ -230,6 +232,102 @@ body {
   margin-top: 2px;
 }
 
+/* ── Developer Panel ─────────────────────────────────────────────────────────── */
+#dev-panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 300;
+  background: var(--bg);
+  border: 1px solid rgba(200, 120, 90, .4);
+  border-radius: 8px;
+  padding: 30px 40px;
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-shadow: 0 12px 64px rgba(0, 0, 0, .4);
+}
+
+#dev-panel.hidden {
+  display: none;
+}
+
+#dev-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 1.5rem;
+  cursor: pointer;
+  line-height: 1;
+  transition: color .15s;
+}
+
+#dev-close:hover {
+  color: var(--accent);
+}
+
+#dev-header {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.4rem;
+  color: var(--accent);
+  border-bottom: 1px solid var(--border-mid);
+  padding-bottom: 10px;
+}
+
+.dev-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dev-label {
+  font-family: 'Courier Prime', 'Courier New', monospace;
+  font-size: .75rem;
+  color: var(--muted);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.dev-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: 'Courier Prime', 'Courier New', monospace;
+  font-size: .85rem;
+  color: var(--text);
+}
+
+.dev-action-btn {
+  width: 100%;
+  padding: 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-mid);
+  background: var(--panel-hi);
+  color: var(--text);
+  font-family: inherit;
+  font-size: .85rem;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+
+.dev-action-btn:hover {
+  background: rgba(232, 230, 220, .06);
+}
+
+.dev-action-btn.danger {
+  border-color: rgba(200, 50, 50, .4);
+  color: #ff6b6b;
+}
+
+.dev-action-btn.danger:hover {
+  background: rgba(200, 50, 50, .1);
+}
+
 /* ── App shell ─────────────────────────────────────────────────────────────── */
 #app {
   height: 100vh;
@@ -251,7 +349,7 @@ body {
   position: relative;
   flex: 1;
   overflow: hidden;
-  background: #eedc82;
+  background: #ffffff;
 }
 
 #canvas,
@@ -548,11 +646,27 @@ body {
 }
 
 /* ── Minimap ───────────────────────────────────────────────────────────────── */
-#minimap {
+#minimap-container {
   position: absolute;
   bottom: 74px;
   right: 14px;
   z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+#minimap-label {
+  font-family: 'Courier Prime', 'Courier New', monospace;
+  font-size: .65rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #9a8f82;
+  margin-right: 2px;
+}
+
+#minimap {
   width: 160px;
   height: 120px;
   border-radius: 3px;
@@ -586,8 +700,9 @@ body {
 #sidebar {
   width: var(--sidebar-w);
   flex-shrink: 0;
-  border-left: 1px solid var(--border);
-  background: var(--panel);
+  border-left: 1px solid rgba(200, 120, 90, .18);
+  background: rgba(255, 255, 255, 0.82);
+  color: #1a1816;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -598,30 +713,30 @@ body {
   align-items: center;
   gap: 10px;
   padding: 16px 16px 13px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid rgba(200, 120, 90, .18);
   font-family: Georgia, 'Times New Roman', serif;
-  font-size: .9rem;
+  font-size: 1.15rem;
   font-weight: 400;
   letter-spacing: .01em;
-  color: var(--text);
+  color: #1a1816;
   flex-shrink: 0;
   font-style: italic;
 }
 
 /* Online */
 #users-section {
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid rgba(200, 120, 90, .18);
   flex-shrink: 0;
   padding-bottom: 8px;
 }
 
 #users-section h2,
 #chat-section h2 {
-  font-size: .6rem;
-  font-weight: 400;
+  font-size: .75rem;
+  font-weight: 700;
   letter-spacing: .14em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: #9a8f82;
   padding: 12px 16px 6px;
   font-family: inherit;
 }
@@ -637,13 +752,13 @@ body {
   gap: 9px;
   padding: 5px 8px;
   border-radius: var(--radius);
-  font-size: .8rem;
+  font-size: 1rem;
   transition: background .1s;
-  color: var(--text);
+  color: #1a1816;
 }
 
 #user-list li:hover {
-  background: var(--panel-hi);
+  background: rgba(200, 120, 90, 0.08);
 }
 
 /* Chat */
@@ -678,18 +793,18 @@ body {
 
 .msg-name {
   font-weight: 700;
-  font-size: .74rem;
+  font-size: .9rem;
   letter-spacing: .02em;
 }
 
 .msg-time {
   font-size: .64rem;
-  color: var(--muted);
+  color: #9a8f82;
 }
 
 .msg-text {
-  font-size: .8rem;
-  color: rgba(232, 230, 220, .8);
+  font-size: .9rem;
+  color: #5a5852;
   line-height: 1.5;
   word-break: break-word;
   padding-left: 1px;
@@ -700,15 +815,15 @@ body {
   align-items: center;
   gap: 6px;
   padding: 9px 10px 11px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid rgba(200, 120, 90, .18);
 }
 
 #chat-input {
   flex: 1;
-  background: rgba(23, 22, 20, .6);
-  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(200, 120, 90, .25);
   border-radius: var(--radius);
-  color: var(--text);
+  color: #1a1816;
   padding: 7px 12px;
   font-size: .8rem;
   font-family: inherit;
@@ -722,7 +837,7 @@ body {
 }
 
 #chat-input::placeholder {
-  color: var(--dim);
+  color: #aaa;
 }
 
 #chat-send {
