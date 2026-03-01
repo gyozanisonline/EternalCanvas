@@ -559,10 +559,37 @@ canvas.addEventListener('touchend', (e) => {
   if (Object.keys(activeTouches).length < 2) lastPinchDist = null;
 });
 
+// ── Countdown timer (shared between modal and in-app) ────────────────────────
+let _nextResetAt = 0;
+let _countdownTick = null;
+
+function formatCountdown(ms) {
+  if (ms <= 0) return '00:00:00';
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  return [h, m, s].map(n => String(n).padStart(2, '0')).join(':');
+}
+
+function startCountdown(ts) {
+  _nextResetAt = ts;
+  if (_countdownTick) clearInterval(_countdownTick);
+  function tick() {
+    const remaining = Math.max(0, _nextResetAt - Date.now());
+    const str = formatCountdown(remaining);
+    document.querySelectorAll('.reset-countdown').forEach(el => {
+      el.textContent = 'new canvas in: ' + str;
+    });
+  }
+  tick();
+  _countdownTick = setInterval(tick, 1000);
+}
+
 // ── Socket events ─────────────────────────────────────────────────────────────
-socket.on('canvas:init', (serverEvents) => {
+socket.on('canvas:init', ({ events: serverEvents, nextResetAt }) => {
   events.length = 0;
   for (const ev of serverEvents) events.push(ev);
+  startCountdown(nextResetAt);
   rebuildMinimap();
   scheduleRender();
 });
@@ -597,9 +624,23 @@ socket.on('draw:text', (data) => {
 socket.on('canvas:undo', (serverEvents) => {
   events.length = 0;
   for (const ev of serverEvents) events.push(ev);
-  // Also clear any in-progress remote stroke from that user
   rebuildMinimap();
   scheduleRender();
+});
+
+// ── canvas:reset — server wiped the canvas ────────────────────────────────────
+socket.on('canvas:reset', ({ nextResetAt }) => {
+  events.length = 0;
+  Object.keys(remoteInProgress).forEach(k => delete remoteInProgress[k]);
+  startCountdown(nextResetAt);
+  rebuildMinimap();
+  scheduleRender();
+  // Brief flash so everyone knows the wipe happened
+  const flash = document.createElement('div');
+  flash.style.cssText = 'position:fixed;inset:0;background:rgba(250,249,245,.55);z-index:999;pointer-events:none;transition:opacity 1.2s';
+  document.body.appendChild(flash);
+  requestAnimationFrame(() => { flash.style.opacity = '0'; });
+  setTimeout(() => flash.remove(), 1400);
 });
 
 socket.on('cursor:update', ({ id, name, color, x, y }) => {
@@ -609,7 +650,7 @@ socket.on('cursor:update', ({ id, name, color, x, y }) => {
 
 socket.on('cursor:remove', (id) => {
   delete remoteCursors[id];
-  delete remoteInProgress[id]; // clean up if they disconnected mid-stroke
+  delete remoteInProgress[id];
   redrawCursors();
   scheduleRender();
 });
@@ -637,49 +678,38 @@ function drawChatBubbles() {
   for (const [id, b] of Object.entries(chatBubbles)) {
     if (now > b.expiry) { delete chatBubbles[id]; continue; }
 
-    const cursor = id === socket.id
-      ? null  // our own messages don't need a cursor position
-      : remoteCursors[id];
-    if (!cursor && id !== socket.id) continue;
+    const cursor = remoteCursors[id];
+    if (!cursor) continue;
 
-    // Screen position
-    let sx, sy;
-    if (id === socket.id) continue;  // skip own bubble (you know what you typed)
-    const { x: wx, y: wy } = { x: cursor.wx, y: cursor.wy };
-    const sp = worldToScreen(wx, wy);
-    sx = sp.x; sy = sp.y;
+    const sp = worldToScreen(cursor.wx, cursor.wy);
+    const sx = sp.x, sy = sp.y;
 
     const age = (now - (b.expiry - BUBBLE_DURATION)) / BUBBLE_DURATION;
-    const alpha = Math.max(0, 1 - Math.pow(age, 2.5)); // fade out
+    const alpha = Math.max(0, 1 - Math.pow(age, 2.5));
 
     const PAD = 7;
-    const FONT = '400 11px Courier Prime, Courier New, monospace';
-    curCtx.font = FONT;
+    curCtx.font = '400 11px Courier Prime, Courier New, monospace';
     const tw = curCtx.measureText(b.text).width;
     const bw = tw + PAD * 2;
     const bh = 20;
     const bx = sx - bw / 2;
     const by = sy - 38 - bh;
 
-    // Bubble background
     curCtx.fillStyle = `rgba(${hexToRgb(b.color)},${(alpha * 0.92).toFixed(2)})`;
     if (curCtx.roundRect) {
       curCtx.beginPath(); curCtx.roundRect(bx, by, bw, bh, 4); curCtx.fill();
     } else {
       curCtx.fillRect(bx, by, bw, bh);
     }
-    // Tiny tail triangle
     curCtx.beginPath();
     curCtx.moveTo(sx - 5, by + bh);
     curCtx.lineTo(sx + 5, by + bh);
     curCtx.lineTo(sx, by + bh + 6);
     curCtx.fillStyle = `rgba(${hexToRgb(b.color)},${(alpha * 0.92).toFixed(2)})`;
     curCtx.fill();
-    // Text
     curCtx.fillStyle = `rgba(255,255,255,${(alpha * 0.95).toFixed(2)})`;
     curCtx.fillText(b.text, bx + PAD, by + 13);
   }
-  // Schedule next frame if any bubble is still alive
   if (Object.keys(chatBubbles).length > 0) scheduleRender();
 }
 
@@ -691,7 +721,7 @@ function hexToRgb(hex) {
 }
 
 socket.on('chat:message', ({ senderId, name, color, text, ts }) => {
-  // ── Sidebar chat entry ──────────────────────────────────────────────────
+  // ── Sidebar chat entry ──────────────────────────────────────────────────────
   const div = document.createElement('div');
   div.className = 'chat-msg';
   const header = document.createElement('div');
@@ -713,7 +743,7 @@ socket.on('chat:message', ({ senderId, name, color, text, ts }) => {
   chatMessages.appendChild(div);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 
-  // ── Canvas bubble ───────────────────────────────────────────────────────
+  // ── Canvas bubble ────────────────────────────────────────────────────────────
   const maxLen = 38;
   const displayText = text.length > maxLen ? text.slice(0, maxLen - 1) + '…' : text;
   chatBubbles[senderId] = { text: displayText, color, expiry: Date.now() + BUBBLE_DURATION };
@@ -729,6 +759,48 @@ function sendChat() {
 }
 chatSend.addEventListener('click', sendChat);
 chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
+
+// ── Controls tab toggle ───────────────────────────────────────────────────────
+const controlsToggle = document.getElementById('controls-toggle');
+const controlsPanel = document.getElementById('controls-panel');
+if (controlsToggle && controlsPanel) {
+  controlsToggle.addEventListener('click', () => {
+    controlsPanel.classList.toggle('open');
+  });
+  document.addEventListener('click', (e) => {
+    if (!controlsToggle.contains(e.target) && !controlsPanel.contains(e.target)) {
+      controlsPanel.classList.remove('open');
+    }
+  });
+}
+
+// ── Explore toast ─────────────────────────────────────────────────────────────
+const exploreToast = document.getElementById('explore-toast');
+
+function showExploreToast() {
+  if (!exploreToast) return;
+  exploreToast.classList.add('visible');
+  setTimeout(() => exploreToast.classList.remove('visible'), 4000);
+}
+
+// ── Spawn near existing doodles ───────────────────────────────────────────────
+function spawnNearDoodles() {
+  const strokes = events.filter(e => e.type === 'stroke' && e.points && e.points.length > 0);
+  if (strokes.length === 0) return;
+
+  let sumX = 0, sumY = 0, count = 0;
+  for (const s of strokes) {
+    for (const p of s.points) { sumX += p.x; sumY += p.y; count++; }
+  }
+  const cx = sumX / count;
+  const cy = sumY / count;
+
+  zoom = 0.35;
+  panX = canvas.width / 2 - cx * zoom;
+  panY = canvas.height / 2 - cy * zoom;
+  scheduleRender();
+  showExploreToast();
+}
 
 // ── Join ──────────────────────────────────────────────────────────────────────
 function join() {
@@ -749,17 +821,83 @@ function join() {
   userNameDisp.textContent = name;
   modalOverlay.style.display = 'none';
   stopAmbient();
+  if (phraseInterval) { clearInterval(phraseInterval); phraseInterval = null; }
   appEl.classList.remove('hidden');
   resizeCanvases();
   initViewport();
   rebuildMinimap();
   renderViewport();
   setTool('brush');
+  spawnNearDoodles();
 }
 
 joinBtn.addEventListener('click', join);
 nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') join(); });
 nameInput.focus();
+
+// ── Rotating phrases ──────────────────────────────────────────────────────────
+const PHRASES = [
+  'Draw your heart out!',
+  'Graffiti time!',
+  'This is not drawfull, wrong house.',
+  'Pen-tastic! (kill me now)',
+  'I love Gyozan :)',
+  'I love Mayan Green 💚',
+  'I love Dani Mezoomoney 💸',
+  'I love Chopke! 🐾',
+  'Draw a dick, I dare you.',
+  'Every line tells a story.',
+  'Sketch responsibly.',
+  'Warning: may cause spontaneous creativity.',
+  'Canvas or therapy? Yes.',
+  'Ink-credible things happen here.',
+  'Draw-matically better than texting.',
+  'You can\'t spell "masterpiece" without "mess".',
+  'Brush up your social skills.',
+  'Art happens in real time.',
+  'Squiggle your way to greatness.',
+  'No eraser, no fear.',
+  'Lines that cross, ideas that don\'t.',
+  'The pen is mightier than the keyboard.',
+  'Doodle or die.',
+  'What would Picasso do? Probably this.',
+  'Abstract art or happy accident? Both.',
+  'Draw first, explain later.',
+  'Colour outside the server limits.',
+  'Your cursor is someone\'s muse.',
+  'Making marks since forever.',
+  'Collaborative chaos, curated.',
+  'This canvas persists. So should you.',
+  'Every pixel is a promise.',
+  'Draw-n to each other.',
+  'Leave your mark (literally).',
+  'Real-time doodling — no buffering.',
+  'Stoke the stroke. Stroke the stoke.',
+  'Connecting humans, one scribble at a time.',
+  'Art is just organized chaos. You\'re halfway there.',
+  'The only limit is your Wi-Fi.',
+  'Be the brushstroke you wish to see in the world.',
+];
+
+const phraseEl = document.getElementById('rotating-phrase');
+let phraseIndex = 0;
+let phraseInterval = null;
+
+function rotatePhrases() {
+  if (!phraseEl) return;
+  phraseEl.classList.add('fade-out');
+  setTimeout(() => {
+    phraseIndex = (phraseIndex + 1) % PHRASES.length;
+    phraseEl.textContent = PHRASES[phraseIndex];
+    phraseEl.classList.remove('fade-out');
+  }, 400);
+}
+
+if (phraseEl) {
+  phraseIndex = Math.floor(Math.random() * PHRASES.length);
+  phraseEl.textContent = PHRASES[phraseIndex];
+  phraseInterval = setInterval(rotatePhrases, 3000);
+}
 
 // ── Resize ────────────────────────────────────────────────────────────────────
 function resizeCanvases() {
@@ -770,20 +908,13 @@ function resizeCanvases() {
 }
 window.addEventListener('resize', () => { resizeCanvases(); scheduleRender(); });
 
-// ── Ambient modal animation — Drawing Bots ───────────────────────────────────
-// Autonomous bots that wander around and draw random strokes
+// ── Ambient modal animation — Drawing Bots ────────────────────────────────────
 let ambRunning = true;
 
 const BOT_COUNT = 8;
 const BOT_COLORS = [
-  '#c8785a', // accent clay
-  '#5a8ab4', // steel blue
-  '#7ab87a', // sage green
-  '#b47ab4', // muted violet
-  '#b4a05a', // warm gold
-  '#5ab4a0', // teal
-  '#b45a5a', // muted rose
-  '#8ab47a', // moss
+  '#c8785a', '#5a8ab4', '#7ab87a', '#b47ab4',
+  '#b4a05a', '#5ab4a0', '#b45a5a', '#8ab47a',
 ];
 
 const bots = [];
@@ -792,16 +923,10 @@ function initAmbient() {
   if (!ambCanvas || !ambCtx) return;
   ambCanvas.width = window.innerWidth;
   ambCanvas.height = window.innerHeight;
-
-  // White background to start
   ambCtx.fillStyle = '#ffffff';
   ambCtx.fillRect(0, 0, ambCanvas.width, ambCanvas.height);
-
-  // Create bots scattered around the screen
   bots.length = 0;
-  for (let i = 0; i < BOT_COUNT; i++) {
-    bots.push(makeBot(i));
-  }
+  for (let i = 0; i < BOT_COUNT; i++) bots.push(makeBot(i));
 }
 
 function makeBot(i) {
@@ -810,42 +935,33 @@ function makeBot(i) {
     y: Math.random() * ambCanvas.height,
     angle: Math.random() * Math.PI * 2,
     speed: 0.8 + Math.random() * 1.4,
-    angularVel: (Math.random() - 0.5) * 0.12, // baseline turn rate
+    angularVel: (Math.random() - 0.5) * 0.12,
     color: BOT_COLORS[i % BOT_COLORS.length],
     size: 1 + Math.random() * 1.5,
     jitterTimer: 0,
-    jitterInterval: 40 + Math.floor(Math.random() * 80), // frames between direction changes
+    jitterInterval: 40 + Math.floor(Math.random() * 80),
     alpha: 0.28 + Math.random() * 0.22,
   };
 }
 
 function animateAmbient() {
   if (!ambRunning || !ambCanvas || !ambCtx) return;
-
   for (const bot of bots) {
     const prevX = bot.x;
     const prevY = bot.y;
-
-    // Periodically adjust angular velocity for wiggly paths
     bot.jitterTimer++;
     if (bot.jitterTimer >= bot.jitterInterval) {
       bot.jitterTimer = 0;
       bot.jitterInterval = 40 + Math.floor(Math.random() * 80);
       bot.angularVel = (Math.random() - 0.5) * 0.18;
     }
-
-    // Add tiny per-frame noise on top
     bot.angle += bot.angularVel + (Math.random() - 0.5) * 0.04;
     bot.x += Math.cos(bot.angle) * bot.speed;
     bot.y += Math.sin(bot.angle) * bot.speed;
-
-    // Wrap around edges
     if (bot.x < -20) bot.x = ambCanvas.width + 20;
     if (bot.x > ambCanvas.width + 20) bot.x = -20;
     if (bot.y < -20) bot.y = ambCanvas.height + 20;
     if (bot.y > ambCanvas.height + 20) bot.y = -20;
-
-    // Draw line segment
     ambCtx.beginPath();
     ambCtx.moveTo(prevX, prevY);
     ambCtx.lineTo(bot.x, bot.y);
@@ -854,7 +970,6 @@ function animateAmbient() {
     ambCtx.lineCap = 'round';
     ambCtx.stroke();
   }
-
   requestAnimationFrame(animateAmbient);
 }
 
@@ -862,4 +977,3 @@ function stopAmbient() { ambRunning = false; }
 
 initAmbient();
 animateAmbient();
-

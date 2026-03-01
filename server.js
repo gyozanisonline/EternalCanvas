@@ -11,6 +11,9 @@ const io = new Server(server);
 const PORT = process.env.PORT || 3001;
 const DATA_DIR = path.join(__dirname, 'data');
 const CANVAS_FILE = path.join(DATA_DIR, 'canvas.json');
+const META_FILE = path.join(DATA_DIR, 'meta.json');
+
+const RESET_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // ── Colour palette assigned to users on join ──────────────────────────────────
 const PALETTE = [
@@ -21,32 +24,65 @@ const PALETTE = [
 let paletteIndex = 0;
 
 // ── In-memory state ───────────────────────────────────────────────────────────
-const users = {};          // socketId → { id, name, color }
-let canvasEvents = [];     // append-only log of draw events
+const users = {};
+let canvasEvents = [];
+let nextResetAt = Date.now() + RESET_INTERVAL_MS;
 
 // ── Persistence helpers ───────────────────────────────────────────────────────
+function ensureDataDir() {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
 function loadCanvas() {
   try {
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+    ensureDataDir();
     if (fs.existsSync(CANVAS_FILE)) {
       canvasEvents = JSON.parse(fs.readFileSync(CANVAS_FILE, 'utf8'));
       console.log(`Loaded ${canvasEvents.length} canvas events from disk.`);
     }
+    if (fs.existsSync(META_FILE)) {
+      const meta = JSON.parse(fs.readFileSync(META_FILE, 'utf8'));
+      if (meta.nextResetAt && meta.nextResetAt > Date.now()) {
+        nextResetAt = meta.nextResetAt;
+      } else {
+        // Overdue — clear canvas now, start fresh cycle
+        canvasEvents = [];
+        nextResetAt = Date.now() + RESET_INTERVAL_MS;
+        saveCanvas();
+      }
+    }
   } catch (err) {
-    console.warn('Could not load canvas state:', err.message);
+    console.warn('Could not load state:', err.message);
     canvasEvents = [];
   }
 }
 
 function saveCanvas() {
   try {
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+    ensureDataDir();
     fs.writeFile(CANVAS_FILE, JSON.stringify(canvasEvents), (err) => {
       if (err) console.warn('Canvas save error:', err.message);
+    });
+    fs.writeFile(META_FILE, JSON.stringify({ nextResetAt }), (err) => {
+      if (err) console.warn('Meta save error:', err.message);
     });
   } catch (err) {
     console.warn('Canvas save error:', err.message);
   }
+}
+
+// ── 24-hour reset scheduler ───────────────────────────────────────────────────
+function scheduleReset() {
+  const delay = Math.max(0, nextResetAt - Date.now());
+  console.log(`Next canvas reset in ${Math.round(delay / 1000)}s`);
+  setTimeout(() => {
+    console.log('Canvas reset — wiping canvas.');
+    canvasEvents = [];
+    nextResetAt = Date.now() + RESET_INTERVAL_MS;
+    saveCanvas();
+    io.emit('canvas:reset', { nextResetAt });
+    scheduleReset(); // chain for the next cycle
+  }, delay);
 }
 
 // ── Express ───────────────────────────────────────────────────────────────────
@@ -65,13 +101,9 @@ io.on('connection', (socket) => {
     users[socket.id] = { id: socket.id, name: trimmedName, color };
     console.log(`User joined: ${trimmedName} (${socket.id})`);
 
-    // Send existing canvas state to the new joiner
-    socket.emit('canvas:init', canvasEvents);
-
-    // Send current user list to the new joiner
+    // Send existing canvas state + reset time to the new joiner
+    socket.emit('canvas:init', { events: canvasEvents, nextResetAt });
     socket.emit('user:list', Object.values(users));
-
-    // Announce to everyone else
     socket.broadcast.emit('user:joined', users[socket.id]);
     io.emit('user:list', Object.values(users));
   });
@@ -105,19 +137,17 @@ io.on('connection', (socket) => {
   socket.on('undo', () => {
     const user = users[socket.id];
     if (!user) return;
-    // Find the last event that belongs to this user
     for (let i = canvasEvents.length - 1; i >= 0; i--) {
       if (canvasEvents[i].userId === socket.id) {
         canvasEvents.splice(i, 1);
         saveCanvas();
-        // Tell everyone (including the sender) to re-render from the new state
         io.emit('canvas:undo', canvasEvents);
         break;
       }
     }
   });
 
-  // ── Cursor movement (not stored, ephemeral) ───────────────────────────────
+  // ── Cursor movement ───────────────────────────────────────────────────────
   socket.on('cursor:move', ({ x, y }) => {
     const user = users[socket.id];
     if (!user) return;
@@ -130,14 +160,13 @@ io.on('connection', (socket) => {
     if (!user) return;
     const trimmedText = String(text).trim().slice(0, 500);
     if (!trimmedText) return;
-    const msg = {
-      senderId: socket.id,   // used by client to attach bubble to the right cursor
+    io.emit('chat:message', {
+      senderId: socket.id,
       name: user.name,
       color: user.color,
       text: trimmedText,
       ts: Date.now(),
-    };
-    io.emit('chat:message', msg);
+    });
   });
 
   // ── Disconnect ────────────────────────────────────────────────────────────
@@ -154,6 +183,7 @@ io.on('connection', (socket) => {
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 loadCanvas();
+scheduleReset();
 server.listen(PORT, () => {
   console.log(`Eternal Canvas running at http://localhost:${PORT}`);
 });
