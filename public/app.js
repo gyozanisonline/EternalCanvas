@@ -459,9 +459,9 @@ let drawSeconds = 0;
 
 function updateTokenDisplay() {
   if (userTokenDisplay) userTokenDisplay.textContent = `×${myTokens}`;
-  // Dim the ↑1 button when broke
   tooltipOneup.style.opacity = myTokens > 0 ? '1' : '0.35';
   tooltipOneup.style.pointerEvents = myTokens > 0 ? 'auto' : 'none';
+  if (myName) localStorage.setItem('ec_tokens', myTokens);
 }
 
 function spendOneUp(wx, wy) {
@@ -1059,6 +1059,10 @@ joinBtn.addEventListener('click', () => {
   userDot.style.background = myColor;
   userNameDisp.textContent = myName + ' (you)';
 
+  // Restore saved token balance and name
+  localStorage.setItem('ec_name', myName);
+  myTokens = parseInt(localStorage.getItem('ec_tokens') || '0', 10);
+
   socket.emit('user:join', { name: myName, color: myColor });
   updateTokenDisplay();
 
@@ -1072,7 +1076,9 @@ joinBtn.addEventListener('click', () => {
   setTool('brush'); // Added from original join
   spawnNearDoodles();
 });
-nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') joinBtn.click(); }); // Changed to click joinBtn
+nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') joinBtn.click(); });
+const savedName = localStorage.getItem('ec_name');
+if (savedName) nameInput.value = savedName;
 nameInput.focus();
 
 // ── Rotating phrases ──────────────────────────────────────────────────────────
