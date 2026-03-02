@@ -39,6 +39,10 @@ const sidebarEl = document.getElementById('sidebar');
 const sidebarToggle = document.getElementById('sidebar-toggle');
 const sidebarBackdrop = document.getElementById('sidebar-backdrop');
 
+const strokeTooltip = document.getElementById('stroke-tooltip');
+const tooltipName = document.getElementById('tooltip-name');
+const tooltipOneup = document.getElementById('tooltip-oneup');
+
 // ── Contexts ──────────────────────────────────────────────────────────────────
 const ctx = canvas.getContext('2d');
 const curCtx = cursorCanvas.getContext('2d');
@@ -299,6 +303,7 @@ function redrawCursors() {
   }
   // Draw floating chat bubbles on top of cursors
   drawChatBubbles();
+  drawOneups();
 }
 
 // ── App state ─────────────────────────────────────────────────────────────────
@@ -343,6 +348,91 @@ function setTool(t) {
 toolBrush.addEventListener('click', () => setTool('brush'));
 toolText.addEventListener('click', () => setTool('text'));
 sizeSlider.addEventListener('input', () => { sizeLabel.textContent = sizeSlider.value; });
+
+// ── Stroke hit detection ──────────────────────────────────────────────────────
+function distToSegment(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return Math.hypot(px - ax, py - ay);
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+
+function findStrokeAt(wx, wy) {
+  const threshold = 8 / zoom;
+  for (let i = events.length - 1; i >= 0; i--) {
+    const ev = events[i];
+    if (ev.type !== 'stroke' || !ev.userName || !ev.points || ev.points.length < 2) continue;
+    for (let j = 1; j < ev.points.length; j++) {
+      if (distToSegment(wx, wy, ev.points[j - 1].x, ev.points[j - 1].y, ev.points[j].x, ev.points[j].y) < threshold) {
+        return ev;
+      }
+    }
+  }
+  return null;
+}
+
+// ── Tooltip state ─────────────────────────────────────────────────────────────
+let hoveredStroke = null, hoverWX = 0, hoverWY = 0;
+let hoverThrottle = 0, tooltipPinned = false, hideTooltipTimer = null;
+
+function showTooltip(ev, sx, sy) {
+  if (hideTooltipTimer) { clearTimeout(hideTooltipTimer); hideTooltipTimer = null; }
+  hoveredStroke = ev;
+  tooltipName.textContent = `drawn by ${ev.userName}`;
+  strokeTooltip.style.left = `${sx + 14}px`;
+  strokeTooltip.style.top = `${sy - 38}px`;
+  strokeTooltip.classList.add('visible');
+}
+
+function scheduleHideTooltip() {
+  if (tooltipPinned) return;
+  if (hideTooltipTimer) clearTimeout(hideTooltipTimer);
+  hideTooltipTimer = setTimeout(() => {
+    hoveredStroke = null;
+    strokeTooltip.classList.remove('visible');
+  }, 150);
+}
+
+strokeTooltip.addEventListener('mouseenter', () => { tooltipPinned = true; if (hideTooltipTimer) { clearTimeout(hideTooltipTimer); hideTooltipTimer = null; } });
+strokeTooltip.addEventListener('mouseleave', () => { tooltipPinned = false; scheduleHideTooltip(); });
+
+// ── 1UP animation ─────────────────────────────────────────────────────────────
+const activeOneups = [];
+
+function drawOneups() {
+  const now = Date.now();
+  const DURATION = 2200;
+  for (let i = activeOneups.length - 1; i >= 0; i--) {
+    const up = activeOneups[i];
+    const age = now - up.startTime;
+    if (age > DURATION) { activeOneups.splice(i, 1); continue; }
+    const t = age / DURATION;
+    const alpha = Math.pow(1 - t, 1.4);
+    const sp = worldToScreen(up.x, up.y);
+    const fy = sp.y - t * 72;
+    const fx = sp.x + Math.sin(age / 60) * 5;
+    curCtx.save();
+    curCtx.globalAlpha = alpha;
+    curCtx.font = `bold 17px 'Courier Prime', monospace`;
+    curCtx.strokeStyle = 'rgba(255,255,255,.85)';
+    curCtx.lineWidth = 3;
+    curCtx.strokeText('1UP!', fx - 18, fy);
+    curCtx.fillStyle = up.color;
+    curCtx.fillText('1UP!', fx - 18, fy);
+    curCtx.restore();
+  }
+  if (activeOneups.length > 0) scheduleRender();
+}
+
+tooltipOneup.addEventListener('click', () => {
+  if (!hoveredStroke) return;
+  const mid = hoveredStroke.points[Math.floor(hoveredStroke.points.length / 2)];
+  socket.emit('draw:oneup', { x: mid.x, y: mid.y });
+  strokeTooltip.classList.remove('visible');
+  tooltipPinned = false;
+  hoveredStroke = null;
+});
 
 // ── Save canvas as PNG ────────────────────────────────────────────────────────
 function savePNG() {
@@ -420,6 +510,8 @@ function screenCoords(e) {
 
 canvas.addEventListener('pointerdown', (e) => {
   if (drawing || isPanning) return;
+  strokeTooltip.classList.remove('visible');
+  hoveredStroke = null; tooltipPinned = false;
 
   // Pan: middle-click, right-click, or space + left-click
   if (e.button === 1 || e.button === 2 || (e.button === 0 && spaceDown)) {
@@ -458,6 +550,24 @@ canvas.addEventListener('pointermove', (e) => {
     return;
   }
 
+  // Hover detection for stroke attribution (throttled)
+  if (!drawing && !isPanning && e.pointerType !== 'touch') {
+    const now = Date.now();
+    if (now - hoverThrottle > 80) {
+      hoverThrottle = now;
+      hoverWX = x; hoverWY = y;
+      const hit = findStrokeAt(x, y);
+      if (hit) {
+        showTooltip(hit, sx, sy);
+      } else {
+        scheduleHideTooltip();
+      }
+    } else if (hoveredStroke) {
+      strokeTooltip.style.left = `${sx + 14}px`;
+      strokeTooltip.style.top = `${sy - 38}px`;
+    }
+  }
+
   if (drawing && tool === 'brush') {
     // Accumulate into segment buffer — flushed every 50ms by the batch timer
     segmentBuffer.push({ x1: lastWX, y1: lastWY, x2: x, y2: y, color: colorPicker.value, size: 1 });
@@ -484,7 +594,7 @@ canvas.addEventListener('pointerup', (e) => {
     drawing = false;
     if (currentStrokePoints.length >= 2) {
       const sd = { points: currentStrokePoints, color: colorPicker.value, size: 1 };
-      events.push({ type: 'stroke', ...sd });
+      events.push({ type: 'stroke', userName: myName, userColor: myColor, ...sd });
       socket.emit('draw:stroke', sd);
       rebuildMinimap();
       undoAvailable = true; // one undo allowed after committing
@@ -533,7 +643,7 @@ canvas.addEventListener('click', (e) => {
     const text = input.value.trim();
     if (canvasWrap.contains(input)) canvasWrap.removeChild(input);
     if (!text) return;
-    events.push({ type: 'text', x, y, text, color, fontSize });
+    events.push({ type: 'text', userName: myName, userColor: myColor, x, y, text, color, fontSize });
     socket.emit('draw:text', { x, y, text, color, fontSize });
     rebuildMinimap();
     undoAvailable = true;
@@ -669,6 +779,11 @@ socket.on('canvas:reset', ({ nextResetAt }) => {
   document.body.appendChild(flash);
   requestAnimationFrame(() => { flash.style.opacity = '0'; });
   setTimeout(() => flash.remove(), 1400);
+});
+
+socket.on('draw:oneup', ({ name, color, x, y }) => {
+  activeOneups.push({ name, color, x, y, startTime: Date.now() });
+  scheduleRender();
 });
 
 socket.on('cursor:update', ({ id, name, color, x, y }) => {

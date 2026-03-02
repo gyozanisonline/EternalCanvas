@@ -116,7 +116,7 @@ io.on('connection', (socket) => {
   socket.on('draw:stroke', (data) => {
     const user = users[socket.id];
     if (!user) return;
-    const event = { type: 'stroke', userId: socket.id, ...data };
+    const event = { type: 'stroke', userId: socket.id, userName: user.name, userColor: user.color, ...data };
     canvasEvents.push(event);
     saveCanvas();
     socket.broadcast.emit('draw:stroke', event);
@@ -126,10 +126,17 @@ io.on('connection', (socket) => {
   socket.on('draw:text', (data) => {
     const user = users[socket.id];
     if (!user) return;
-    const event = { type: 'text', userId: socket.id, ...data };
+    const event = { type: 'text', userId: socket.id, userName: user.name, userColor: user.color, ...data };
     canvasEvents.push(event);
     saveCanvas();
     socket.broadcast.emit('draw:text', event);
+  });
+
+  // ── 1UP reaction ──────────────────────────────────────────────────────────
+  socket.on('draw:oneup', ({ x, y }) => {
+    const user = users[socket.id];
+    if (!user) return;
+    io.emit('draw:oneup', { name: user.name, color: user.color, x, y });
   });
 
   // ── Draw: live segment while someone is still drawing ────────────────────
