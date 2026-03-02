@@ -1115,3 +1115,440 @@ body {
     bottom: 94px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ETERNAL ARCHIVE PAGE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── List view ─────────────────────────────────────────────────────────────── */
+#list-view {
+  min-height: 100vh;
+  background: #ffffff;
+  overflow-y: auto;
+  font-family: 'Courier Prime', 'Courier New', monospace;
+}
+
+#list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 48px 48px 24px;
+  border-bottom: 1px solid rgba(200, 120, 90, .18);
+  margin-bottom: 36px;
+}
+
+#list-eyebrow {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 2.4rem;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: #c8785a;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+#list-subtitle {
+  font-size: .8rem;
+  color: #9a8f82;
+  margin-top: 10px;
+  letter-spacing: .04em;
+}
+
+#back-link {
+  font-size: .8rem;
+  color: #9a8f82;
+  text-decoration: none;
+  letter-spacing: .04em;
+  transition: color .15s;
+  padding-top: 6px;
+}
+
+#back-link:hover {
+  color: #c8785a;
+}
+
+#archive-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+  padding: 0 48px 60px;
+}
+
+.archive-card {
+  border: 1px solid rgba(200, 120, 90, .2);
+  border-radius: 8px;
+  padding: 24px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color .15s, box-shadow .15s;
+  font-family: 'Courier Prime', 'Courier New', monospace;
+}
+
+.archive-card:hover {
+  border-color: rgba(200, 120, 90, .45);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, .06);
+}
+
+.ac-date {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.05rem;
+  color: #1a1816;
+}
+
+.ac-stats {
+  display: flex;
+  gap: 16px;
+  font-size: .75rem;
+  color: #9a8f82;
+}
+
+.ac-artists {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ac-artists li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: .8rem;
+  color: #5a5852;
+}
+
+.ac-count {
+  color: #9a8f82;
+  margin-left: auto;
+  font-size: .75rem;
+}
+
+.ac-explore-btn {
+  margin-top: 6px;
+  padding: 9px 16px;
+  border: 1px solid rgba(200, 120, 90, .4);
+  border-radius: 6px;
+  background: transparent;
+  color: #c8785a;
+  font-family: inherit;
+  font-size: .8rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  cursor: pointer;
+  transition: background .15s;
+}
+
+.ac-explore-btn:hover {
+  background: rgba(200, 120, 90, .08);
+}
+
+#no-archives,
+#loading-msg {
+  color: #9a8f82;
+  font-size: .9rem;
+  text-align: center;
+  padding: 64px 0;
+  letter-spacing: .04em;
+}
+
+/* ── Viewer ────────────────────────────────────────────────────────────────── */
+#viewer {
+  height: 100vh;
+  display: flex;
+  overflow: hidden;
+}
+
+#av-wrap {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  background: #f5f5f0;
+}
+
+#av-canvas,
+#av-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#av-overlay {
+  pointer-events: none;
+}
+
+/* Top HUD bar */
+#av-hud {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: rgba(23, 22, 20, .88);
+  border: 1px solid var(--border-mid);
+  border-radius: 999px;
+  backdrop-filter: blur(12px);
+  font-size: .78rem;
+  color: var(--text);
+  white-space: nowrap;
+  pointer-events: auto;
+}
+
+#av-back-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: .78rem;
+  cursor: pointer;
+  padding: 0;
+  transition: color .15s;
+}
+
+#av-back-btn:hover {
+  color: var(--accent);
+}
+
+#av-date-hud {
+  color: var(--text);
+  font-size: .72rem;
+  letter-spacing: .03em;
+}
+
+#av-zoom-label {
+  color: rgba(232, 230, 220, .45);
+  font-size: .68rem;
+  letter-spacing: .06em;
+  min-width: 38px;
+  text-align: right;
+}
+
+#av-coords {
+  position: absolute;
+  bottom: 10px;
+  left: 12px;
+  z-index: 10;
+  font-size: .68rem;
+  color: rgba(232, 230, 220, .22);
+  pointer-events: none;
+  letter-spacing: .04em;
+  font-family: 'Courier Prime', 'Courier New', monospace;
+}
+
+#av-hint {
+  position: absolute;
+  bottom: 10px;
+  right: 14px;
+  z-index: 10;
+  font-size: .62rem;
+  color: rgba(232, 230, 220, .18);
+  pointer-events: none;
+  letter-spacing: .04em;
+  font-family: 'Courier Prime', 'Courier New', monospace;
+}
+
+/* Archive stroke tooltip (mirrors main tooltip) */
+#av-tooltip {
+  position: absolute;
+  z-index: 15;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px 5px 12px;
+  background: rgba(23, 22, 20, .92);
+  border: 1px solid var(--border-mid);
+  border-radius: 999px;
+  font-size: .72rem;
+  color: var(--text);
+  pointer-events: auto;
+  white-space: nowrap;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, .4);
+  user-select: none;
+  letter-spacing: .04em;
+  font-family: 'Courier Prime', 'Courier New', monospace;
+}
+
+#av-tooltip.visible {
+  display: flex;
+}
+
+#av-tooltip-oneup {
+  background: none;
+  border: 1px solid rgba(232, 230, 220, .2);
+  border-radius: 999px;
+  color: var(--accent);
+  font-family: inherit;
+  font-size: .72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  cursor: pointer;
+  letter-spacing: .04em;
+  transition: background .12s, border-color .12s;
+  line-height: 1.4;
+}
+
+#av-tooltip-oneup:hover {
+  background: var(--accent-soft);
+  border-color: rgba(200, 120, 90, .5);
+}
+
+/* ── Archive sidebar ───────────────────────────────────────────────────────── */
+#av-sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  border-left: 1px solid rgba(200, 120, 90, .18);
+  background: rgba(255, 255, 255, 0.95);
+  color: #1a1816;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  font-family: 'Courier Prime', 'Courier New', monospace;
+}
+
+#av-sidebar-header {
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid rgba(200, 120, 90, .18);
+  flex-shrink: 0;
+}
+
+#av-sidebar-eyebrow {
+  font-size: .62rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: #9a8f82;
+  margin-bottom: 5px;
+}
+
+#av-sidebar-date {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: .95rem;
+  color: #1a1816;
+  line-height: 1.35;
+}
+
+#av-stats-section,
+#av-contributors-section,
+#av-oneup-section {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(200, 120, 90, .1);
+}
+
+#av-stats-section h2,
+#av-contributors-section h2,
+#av-oneup-section h2 {
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: #9a8f82;
+  margin-bottom: 10px;
+  font-family: inherit;
+}
+
+.av-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: .8rem;
+  padding: 3px 0;
+}
+
+.av-stat-label {
+  color: #9a8f82;
+}
+
+.av-stat-val {
+  font-weight: 700;
+  color: #1a1816;
+}
+
+#av-contributors-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#av-contributors-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.av-contrib-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.av-contrib-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 3px;
+}
+
+.av-contrib-name {
+  font-size: .82rem;
+  color: #1a1816;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
+}
+
+.av-contrib-count {
+  font-size: .72rem;
+  color: #9a8f82;
+  flex-shrink: 0;
+}
+
+.av-contrib-bar {
+  height: 3px;
+  background: rgba(200, 120, 90, .12);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.av-contrib-fill {
+  height: 100%;
+  border-radius: 2px;
+  opacity: .65;
+  transition: width .3s ease;
+}
+
+#av-oneup-info {
+  font-size: .78rem;
+  color: #9a8f82;
+  line-height: 1.5;
+}
+
+/* ── Archive link in modal ─────────────────────────────────────────────────── */
+#archive-link {
+  font-size: .72rem;
+  color: var(--accent);
+  text-decoration: none;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  opacity: .65;
+  transition: opacity .15s;
+  align-self: center;
+  font-family: 'Courier Prime', 'Courier New', monospace;
+}
+
+#archive-link:hover {
+  opacity: 1;
+}

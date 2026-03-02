@@ -3,7 +3,7 @@ const express = require('express');
 const http = require('http');
 const path = require('path');
 const { Server } = require('socket.io');
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
 
 const app = express();
 const server = http.createServer(app);
@@ -54,7 +54,8 @@ async function loadCanvas() {
       if (doc.nextResetAt && doc.nextResetAt > Date.now()) {
         nextResetAt = doc.nextResetAt;
       } else if (doc.nextResetAt) {
-        // Overdue reset — clear now
+        // Overdue reset — archive then clear
+        await saveArchive('reset');
         canvasEvents = [];
         nextResetAt = Date.now() + RESET_INTERVAL_MS;
         saveCanvas();
@@ -75,12 +76,53 @@ function saveCanvas() {
   ).catch(err => console.warn('Canvas save error:', err.message));
 }
 
+// ── Archive persistence ───────────────────────────────────────────────────────
+function computeStats(events) {
+  const byUser = {};
+  let totalStrokes = 0, totalTexts = 0, totalPoints = 0;
+  for (const ev of events) {
+    if (ev.type === 'stroke') {
+      totalStrokes++;
+      totalPoints += (ev.points || []).length;
+      if (ev.userName) {
+        if (!byUser[ev.userName]) byUser[ev.userName] = { count: 0, color: ev.userColor || '#888' };
+        byUser[ev.userName].count++;
+        if (ev.userColor) byUser[ev.userName].color = ev.userColor;
+      }
+    }
+    if (ev.type === 'text') totalTexts++;
+  }
+  const topArtists = Object.entries(byUser)
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 5)
+    .map(([name, { count, color }]) => ({ name, count, color }));
+  return { totalStrokes, totalTexts, totalPoints, topArtists };
+}
+
+async function saveArchive(reason = 'reset') {
+  if (!db || canvasEvents.length === 0) return;
+  try {
+    const date = new Date().toISOString().slice(0, 10);
+    await db.collection('archives').insertOne({
+      date,
+      savedAt: Date.now(),
+      reason,
+      events: canvasEvents,
+      stats: computeStats(canvasEvents),
+    });
+    console.log(`Archive saved for ${date} (${canvasEvents.length} events, reason: ${reason}).`);
+  } catch (err) {
+    console.warn('Archive save error:', err.message);
+  }
+}
+
 // ── 24-hour reset scheduler ───────────────────────────────────────────────────
 function scheduleReset() {
   const delay = Math.max(0, nextResetAt - Date.now());
   console.log(`Next canvas reset in ${Math.round(delay / 1000)}s`);
-  setTimeout(() => {
-    console.log('Canvas reset — wiping canvas.');
+  setTimeout(async () => {
+    console.log('Canvas reset — saving archive then wiping canvas.');
+    await saveArchive('reset');
     canvasEvents = [];
     nextResetAt = Date.now() + RESET_INTERVAL_MS;
     saveCanvas();
@@ -91,6 +133,37 @@ function scheduleReset() {
 
 // ── Express ───────────────────────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Serve archive page at /archive (without .html extension)
+app.get('/archive', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'archive.html'));
+});
+
+// ── Archive REST API ──────────────────────────────────────────────────────────
+app.get('/api/archives', async (_req, res) => {
+  if (!db) return res.json([]);
+  try {
+    const archives = await db.collection('archives')
+      .find({}, { projection: { events: 0 } }) // omit events for the list
+      .sort({ savedAt: -1 })
+      .limit(100)
+      .toArray();
+    res.json(archives);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/archives/:id', async (req, res) => {
+  if (!db) return res.status(404).json({ error: 'No database' });
+  try {
+    const doc = await db.collection('archives').findOne({ _id: new ObjectId(req.params.id) });
+    if (!doc) return res.status(404).json({ error: 'Not found' });
+    res.json(doc);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // ── Socket.io ─────────────────────────────────────────────────────────────────
 io.on('connection', (socket) => {
@@ -139,6 +212,13 @@ io.on('connection', (socket) => {
     io.emit('draw:oneup', { name: user.name, color: user.color, x, y });
   });
 
+  // ── Archive 1UP (no user:join required) ───────────────────────────────────
+  socket.on('archive:oneup', ({ x, y, name, color }) => {
+    const safeName = String(name || '✦').slice(0, 32);
+    const safeColor = /^#[0-9a-fA-F]{6}$/.test(color) ? color : '#c8785a';
+    io.emit('draw:oneup', { name: safeName, color: safeColor, x, y });
+  });
+
   // ── Token balance update ───────────────────────────────────────────────────
   socket.on('user:tokens', ({ tokens }) => {
     const user = users[socket.id];
@@ -174,9 +254,9 @@ io.on('connection', (socket) => {
   });
 
   // ── Admin ─────────────────────────────────────────────────────────────────
-  socket.on('admin:force_clear', () => {
-    // Hidden back door to completely wipe canvas
+  socket.on('admin:force_clear', async () => {
     console.log(`Canvas force cleared by admin socket: ${socket.id}`);
+    await saveArchive('force_clear');
     canvasEvents = [];
     nextResetAt = Date.now() + RESET_INTERVAL_MS;
     saveCanvas();

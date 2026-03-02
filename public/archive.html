@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Eternal Archive</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+  <!-- ── Archive list view ───────────────────────────────────────────────────── -->
+  <div id="list-view">
+    <div id="list-header">
+      <div>
+        <div id="list-eyebrow">Eternal<br />Archive</div>
+        <div id="list-subtitle">Each day's canvas, saved forever.</div>
+      </div>
+      <a href="/" id="back-link">← Back to Canvas</a>
+    </div>
+    <div id="archive-grid"></div>
+    <div id="no-archives">No archives yet — the first one saves after the daily reset!</div>
+    <div id="loading-msg">Loading archives…</div>
+  </div>
+
+  <!-- ── Archive viewer ──────────────────────────────────────────────────────── -->
+  <div id="viewer">
+
+    <div id="av-wrap">
+      <canvas id="av-canvas"></canvas>
+      <canvas id="av-overlay"></canvas>
+
+      <!-- Stroke tooltip -->
+      <div id="av-tooltip">
+        <span id="av-tooltip-name"></span>
+        <button id="av-tooltip-oneup" title="Give a 1UP!">&#x2191;1</button>
+      </div>
+
+      <!-- Top HUD bar -->
+      <div id="av-hud">
+        <button id="av-back-btn">← Archive</button>
+        <div class="divider"></div>
+        <span id="av-date-hud"></span>
+        <div class="divider"></div>
+        <span id="av-zoom-label">100%</span>
+      </div>
+
+      <!-- Coordinates -->
+      <div id="av-coords">0, 0</div>
+
+      <!-- Controls hint -->
+      <div id="av-hint">scroll · zoom &nbsp;&nbsp; space + drag · pan &nbsp;&nbsp; R · reset</div>
+    </div>
+
+    <aside id="av-sidebar">
+      <div id="av-sidebar-header">
+        <div id="av-sidebar-eyebrow">Archive</div>
+        <div id="av-sidebar-date"></div>
+      </div>
+
+      <section id="av-stats-section">
+        <h2>Canvas Stats</h2>
+        <div id="av-stats-list"></div>
+      </section>
+
+      <section id="av-contributors-section">
+        <h2>Top Artists</h2>
+        <ul id="av-contributors-list"></ul>
+      </section>
+
+      <section id="av-oneup-section">
+        <h2>1UPs</h2>
+        <p id="av-oneup-info"></p>
+      </section>
+    </aside>
+
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="archive.js"></script>
+</body>
+
+</html>
