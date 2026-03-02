@@ -43,6 +43,7 @@ const strokeTooltip = document.getElementById('stroke-tooltip');
 const tooltipName = document.getElementById('tooltip-name');
 const tooltipOneup = document.getElementById('tooltip-oneup');
 const userTokenDisplay = document.getElementById('user-token-display');
+const brushTypeBtns = document.querySelectorAll('.brush-type-btn');
 
 // ── Contexts ──────────────────────────────────────────────────────────────────
 const ctx = canvas.getContext('2d');
@@ -86,13 +87,13 @@ function initViewport() {
 }
 
 // ── Shared draw primitives (work on any context in world-space) ───────────────
-function renderStroke(c, { points, color, size }) {
+function renderStroke(c, { points, color, size, cap = 'round' }) {
   if (!points || points.length < 2) return;
   c.beginPath();
   c.strokeStyle = color;
   c.lineWidth = size;
-  c.lineCap = 'round';
-  c.lineJoin = 'round';
+  c.lineCap = cap;
+  c.lineJoin = cap === 'square' ? 'miter' : 'round';
   c.moveTo(points[0].x, points[0].y);
   for (let i = 1; i < points.length; i++) c.lineTo(points[i].x, points[i].y);
   c.stroke();
@@ -195,7 +196,8 @@ function renderViewport() {
     renderStroke(ctx, {
       points: currentStrokePoints,
       color: colorPicker.value,
-      size: 1,
+      size: parseInt(sizeSlider.value),
+      cap: brushCap,
     });
   }
 
@@ -312,6 +314,7 @@ const socket = io({ transports: ['websocket'] });
 let myName = '', myColor = '#1F1E1D', tool = 'brush';
 let drawing = false, lastWX = 0, lastWY = 0;
 let currentStrokePoints = [];
+let brushCap = 'round';
 
 // ── Segment batching ─────────────────────────────────────────────────────────
 // Accumulate draw:segment calls and flush every 50ms instead of per-mousemove
@@ -349,6 +352,12 @@ function setTool(t) {
 toolBrush.addEventListener('click', () => setTool('brush'));
 toolText.addEventListener('click', () => setTool('text'));
 sizeSlider.addEventListener('input', () => { sizeLabel.textContent = sizeSlider.value; });
+brushTypeBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    brushCap = btn.dataset.cap;
+    brushTypeBtns.forEach(b => b.classList.toggle('active', b === btn));
+  });
+});
 
 // ── Stroke hit detection ──────────────────────────────────────────────────────
 function distToSegment(px, py, ax, ay, bx, by) {
@@ -453,12 +462,68 @@ function savePNG() {
   a.click();
 }
 
+// ── Rank system ───────────────────────────────────────────────────────────────
+const RANKS = [
+  { min: 0,    title: 'Fresh Brush' },
+  { min: 1,    title: 'Casual Squiggler' },
+  { min: 3,    title: 'Napkin Artist' },
+  { min: 6,    title: 'Enthusiastic Blobist' },
+  { min: 10,   title: 'Certified Scribbler' },
+  { min: 15,   title: 'Pencil Whisperer' },
+  { min: 21,   title: 'Amateur Line Herder' },
+  { min: 28,   title: 'Sketch Goblin' },
+  { min: 36,   title: 'Distinguished Doodler' },
+  { min: 45,   title: 'The Inkredible' },
+  { min: 55,   title: 'Blob Wrangler' },
+  { min: 66,   title: 'Stroke of Luck' },
+  { min: 78,   title: 'Canvas Haunter' },
+  { min: 91,   title: 'Professional Scribbler' },
+  { min: 105,  title: 'Grand Squigglist' },
+  { min: 120,  title: 'Master Blobsmith' },
+  { min: 136,  title: 'Ink Aristocrat' },
+  { min: 153,  title: 'Legendary Doodlier' },
+  { min: 171,  title: 'Brush Whisperer' },
+  { min: 190,  title: 'Serial Sketcher' },
+  { min: 210,  title: 'Canvas Menace' },
+  { min: 231,  title: 'Squiggle Sovereign' },
+  { min: 253,  title: 'Color Criminal' },
+  { min: 276,  title: 'Line Wrangling Maniac' },
+  { min: 300,  title: 'Baron of Blobs' },
+  { min: 325,  title: 'Grand Vizier of Doodles' },
+  { min: 351,  title: 'Perpetual Doodler' },
+  { min: 378,  title: 'Unstoppable Sketch Engine' },
+  { min: 406,  title: 'The Drawing Dead' },
+  { min: 435,  title: 'Ink-redibly Committed' },
+  { min: 465,  title: 'Scribble Sage' },
+  { min: 496,  title: 'Canvas Overlord' },
+  { min: 528,  title: 'Brushstroke Baron' },
+  { min: 561,  title: 'Master of Squiggles' },
+  { min: 595,  title: 'Pen-ultimate Legend' },
+  { min: 630,  title: 'Eternal Sketch Entity' },
+  { min: 666,  title: 'The Great Doodlerino' },
+  { min: 703,  title: 'Sovereign of Scribbles' },
+  { min: 741,  title: 'Transcendent Blobist' },
+  { min: 780,  title: 'Canvas Deity' },
+];
+
+function getRank(tokens) {
+  let rank = RANKS[0];
+  for (const r of RANKS) {
+    if (tokens >= r.min) rank = r;
+    else break;
+  }
+  return rank.title;
+}
+
 // ── 1UP token economy ────────────────────────────────────────────────────────
 let myTokens = 0;
 let drawSeconds = 0;
 
 function updateTokenDisplay() {
-  if (userTokenDisplay) userTokenDisplay.textContent = `×${myTokens}`;
+  if (userTokenDisplay) {
+    userTokenDisplay.textContent = getRank(myTokens);
+    userTokenDisplay.title = `×${myTokens} 1UPs`;
+  }
   tooltipOneup.style.opacity = myTokens > 0 ? '1' : '0.35';
   tooltipOneup.style.pointerEvents = myTokens > 0 ? 'auto' : 'none';
   if (myName) localStorage.setItem('ec_tokens', myTokens);
@@ -603,7 +668,7 @@ canvas.addEventListener('pointermove', (e) => {
 
   if (drawing && tool === 'brush') {
     // Accumulate into segment buffer — flushed every 50ms by the batch timer
-    segmentBuffer.push({ x1: lastWX, y1: lastWY, x2: x, y2: y, color: colorPicker.value, size: 1 });
+    segmentBuffer.push({ x1: lastWX, y1: lastWY, x2: x, y2: y, color: colorPicker.value, size: parseInt(sizeSlider.value), cap: brushCap });
     lastWX = x; lastWY = y;
     currentStrokePoints.push({ x, y });
     scheduleRender();
@@ -626,7 +691,7 @@ canvas.addEventListener('pointerup', (e) => {
   if (drawing && tool === 'brush') {
     drawing = false;
     if (currentStrokePoints.length >= 2) {
-      const sd = { points: currentStrokePoints, color: colorPicker.value, size: 1 };
+      const sd = { points: currentStrokePoints, color: colorPicker.value, size: parseInt(sizeSlider.value), cap: brushCap };
       events.push({ type: 'stroke', userName: myName, userColor: myColor, ...sd });
       socket.emit('draw:stroke', sd);
       rebuildMinimap();
@@ -641,7 +706,7 @@ canvas.addEventListener('pointerleave', () => {
   if (drawing) {
     drawing = false;
     if (currentStrokePoints.length >= 2) {
-      const sd = { points: currentStrokePoints, color: colorPicker.value, size: 1 };
+      const sd = { points: currentStrokePoints, color: colorPicker.value, size: parseInt(sizeSlider.value), cap: brushCap };
       events.push({ type: 'stroke', ...sd });
       socket.emit('draw:stroke', sd);
       rebuildMinimap();
@@ -792,9 +857,9 @@ socket.on('canvas:init', ({ events: serverEvents, nextResetAt }) => {
 socket.on('draw:segment', (payload) => {
   // Accept both single segment and batch array
   const segs = Array.isArray(payload) ? payload : [payload];
-  for (const { userId, x1, y1, x2, y2, color, size } of segs) {
+  for (const { userId, x1, y1, x2, y2, color, size, cap } of segs) {
     if (!remoteInProgress[userId]) {
-      remoteInProgress[userId] = { points: [{ x: x1, y: y1 }, { x: x2, y: y2 }], color, size };
+      remoteInProgress[userId] = { points: [{ x: x1, y: y1 }, { x: x2, y: y2 }], color, size, cap: cap || 'round' };
     } else {
       remoteInProgress[userId].points.push({ x: x2, y: y2 });
     }
@@ -864,13 +929,12 @@ socket.on('user:list', (users) => {
     dot.style.background = u.color;
     li.appendChild(dot);
     li.appendChild(document.createTextNode(u.name));
-    if (u.tokens > 0) {
-      const tok = document.createElement('span');
-      tok.className = 'user-tokens';
-      tok.style.color = u.color;
-      tok.textContent = `×${u.tokens}`;
-      li.appendChild(tok);
-    }
+    const tok = document.createElement('span');
+    tok.className = 'user-tokens';
+    tok.style.color = u.color;
+    tok.textContent = getRank(u.tokens || 0);
+    tok.title = `×${u.tokens || 0} 1UPs`;
+    li.appendChild(tok);
     userListEl.appendChild(li);
   }
 });
