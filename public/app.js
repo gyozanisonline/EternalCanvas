@@ -196,7 +196,7 @@ function renderViewport() {
     renderStroke(ctx, {
       points: currentStrokePoints,
       color: colorPicker.value,
-      size: parseInt(sizeSlider.value),
+      size: parseInt(sizeSlider.value) / 4,
       cap: brushCap,
     });
   }
@@ -668,7 +668,7 @@ canvas.addEventListener('pointermove', (e) => {
 
   if (drawing && tool === 'brush') {
     // Accumulate into segment buffer — flushed every 50ms by the batch timer
-    segmentBuffer.push({ x1: lastWX, y1: lastWY, x2: x, y2: y, color: colorPicker.value, size: parseInt(sizeSlider.value), cap: brushCap });
+    segmentBuffer.push({ x1: lastWX, y1: lastWY, x2: x, y2: y, color: colorPicker.value, size: parseInt(sizeSlider.value) / 4, cap: brushCap });
     lastWX = x; lastWY = y;
     currentStrokePoints.push({ x, y });
     scheduleRender();
@@ -691,7 +691,7 @@ canvas.addEventListener('pointerup', (e) => {
   if (drawing && tool === 'brush') {
     drawing = false;
     if (currentStrokePoints.length >= 2) {
-      const sd = { points: currentStrokePoints, color: colorPicker.value, size: parseInt(sizeSlider.value), cap: brushCap };
+      const sd = { points: currentStrokePoints, color: colorPicker.value, size: parseInt(sizeSlider.value) / 4, cap: brushCap };
       events.push({ type: 'stroke', userName: myName, userColor: myColor, ...sd });
       socket.emit('draw:stroke', sd);
       rebuildMinimap();
@@ -706,7 +706,7 @@ canvas.addEventListener('pointerleave', () => {
   if (drawing) {
     drawing = false;
     if (currentStrokePoints.length >= 2) {
-      const sd = { points: currentStrokePoints, color: colorPicker.value, size: parseInt(sizeSlider.value), cap: brushCap };
+      const sd = { points: currentStrokePoints, color: colorPicker.value, size: parseInt(sizeSlider.value) / 4, cap: brushCap };
       events.push({ type: 'stroke', ...sd });
       socket.emit('draw:stroke', sd);
       rebuildMinimap();
