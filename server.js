@@ -102,7 +102,7 @@ io.on('connection', (socket) => {
     const color = PALETTE[paletteIndex % PALETTE.length];
     paletteIndex++;
 
-    users[socket.id] = { id: socket.id, name: trimmedName, color };
+    users[socket.id] = { id: socket.id, name: trimmedName, color, tokens: 0 };
     console.log(`User joined: ${trimmedName} (${socket.id})`);
 
     // Send existing canvas state + reset time to the new joiner
@@ -137,6 +137,14 @@ io.on('connection', (socket) => {
     const user = users[socket.id];
     if (!user) return;
     io.emit('draw:oneup', { name: user.name, color: user.color, x, y });
+  });
+
+  // ── Token balance update ───────────────────────────────────────────────────
+  socket.on('user:tokens', ({ tokens }) => {
+    const user = users[socket.id];
+    if (!user) return;
+    user.tokens = Math.max(0, Math.floor(tokens));
+    io.emit('user:list', Object.values(users));
   });
 
   // ── Draw: live segment while someone is still drawing ────────────────────

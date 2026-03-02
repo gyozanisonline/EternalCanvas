@@ -42,6 +42,7 @@ const sidebarBackdrop = document.getElementById('sidebar-backdrop');
 const strokeTooltip = document.getElementById('stroke-tooltip');
 const tooltipName = document.getElementById('tooltip-name');
 const tooltipOneup = document.getElementById('tooltip-oneup');
+const userTokenDisplay = document.getElementById('user-token-display');
 
 // ── Contexts ──────────────────────────────────────────────────────────────────
 const ctx = canvas.getContext('2d');
@@ -426,9 +427,9 @@ function drawOneups() {
 }
 
 tooltipOneup.addEventListener('click', () => {
-  if (!hoveredStroke) return;
+  if (!hoveredStroke || myTokens <= 0) return;
   const mid = hoveredStroke.points[Math.floor(hoveredStroke.points.length / 2)];
-  socket.emit('draw:oneup', { x: mid.x, y: mid.y });
+  spendOneUp(mid.x, mid.y);
   strokeTooltip.classList.remove('visible');
   tooltipPinned = false;
   hoveredStroke = null;
@@ -451,6 +452,38 @@ function savePNG() {
   a.href = offscreen.toDataURL('image/png');
   a.click();
 }
+
+// ── 1UP token economy ────────────────────────────────────────────────────────
+let myTokens = 0;
+let drawSeconds = 0;
+
+function updateTokenDisplay() {
+  if (userTokenDisplay) userTokenDisplay.textContent = `×${myTokens}`;
+  // Dim the ↑1 button when broke
+  tooltipOneup.style.opacity = myTokens > 0 ? '1' : '0.35';
+  tooltipOneup.style.pointerEvents = myTokens > 0 ? 'auto' : 'none';
+}
+
+function spendOneUp(wx, wy) {
+  if (myTokens <= 0) return;
+  myTokens--;
+  updateTokenDisplay();
+  socket.emit('user:tokens', { tokens: myTokens });
+  socket.emit('draw:oneup', { x: wx, y: wy });
+}
+
+// Accumulate 1 token per 60 seconds of active drawing
+setInterval(() => {
+  if (drawing) {
+    drawSeconds++;
+    if (drawSeconds >= 60) {
+      drawSeconds -= 60;
+      myTokens++;
+      updateTokenDisplay();
+      socket.emit('user:tokens', { tokens: myTokens });
+    }
+  }
+}, 1000);
 
 // ── Undo (local + server, one-shot per action) ───────────────────────────────
 let undoAvailable = false; // Only true after committing a new stroke/text
@@ -619,7 +652,17 @@ canvas.addEventListener('pointerleave', () => {
   }
 });
 
-canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+canvas.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  if (myTokens <= 0) return;
+  const { sx, sy } = screenCoords(e);
+  const { x, y } = screenToWorld(sx, sy);
+  const hit = findStrokeAt(x, y);
+  if (hit) {
+    const mid = hit.points[Math.floor(hit.points.length / 2)];
+    spendOneUp(mid.x, mid.y);
+  }
+});
 
 // ── Text tool ─────────────────────────────────────────────────────────────────
 canvas.addEventListener('click', (e) => {
@@ -662,13 +705,27 @@ let activeTouches = {}, lastPinchDist = null, lastPinchMX = 0, lastPinchMY = 0;
 
 canvas.addEventListener('touchstart', (e) => {
   for (const t of e.changedTouches) activeTouches[t.identifier] = { x: t.clientX, y: t.clientY };
-  if (Object.keys(activeTouches).length === 2) {
+  const touchCount = Object.keys(activeTouches).length;
+  if (touchCount === 2) {
     e.preventDefault();
     drawing = false; currentStrokePoints = [];
     const ts = Object.values(activeTouches);
     lastPinchDist = Math.hypot(ts[1].x - ts[0].x, ts[1].y - ts[0].y);
     lastPinchMX = (ts[0].x + ts[1].x) / 2;
     lastPinchMY = (ts[0].y + ts[1].y) / 2;
+  }
+  if (touchCount === 3 && myTokens > 0) {
+    e.preventDefault();
+    const ts = Object.values(activeTouches);
+    const mx = (ts[0].x + ts[1].x + ts[2].x) / 3;
+    const my = (ts[0].y + ts[1].y + ts[2].y) / 3;
+    const r = canvas.getBoundingClientRect();
+    const { x, y } = screenToWorld(mx - r.left, my - r.top);
+    const hit = findStrokeAt(x, y);
+    if (hit) {
+      const mid = hit.points[Math.floor(hit.points.length / 2)];
+      spendOneUp(mid.x, mid.y);
+    }
   }
 }, { passive: false });
 
@@ -807,6 +864,13 @@ socket.on('user:list', (users) => {
     dot.style.background = u.color;
     li.appendChild(dot);
     li.appendChild(document.createTextNode(u.name));
+    if (u.tokens > 0) {
+      const tok = document.createElement('span');
+      tok.className = 'user-tokens';
+      tok.style.color = u.color;
+      tok.textContent = `×${u.tokens}`;
+      li.appendChild(tok);
+    }
     userListEl.appendChild(li);
   }
 });
@@ -996,6 +1060,7 @@ joinBtn.addEventListener('click', () => {
   userNameDisp.textContent = myName + ' (you)';
 
   socket.emit('user:join', { name: myName, color: myColor });
+  updateTokenDisplay();
 
   modalOverlay.style.display = 'none';
   if (ambCanvas) ambCanvas.style.display = 'none';
